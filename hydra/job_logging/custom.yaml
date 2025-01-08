@@ -1,0 +1,27 @@
+version: 1
+formatters:
+  simple:
+    format: '[%(asctime)s][%(name)s][%(levelname)s] - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+root:
+  level: WARNING
+  handlers: [console]
+loggers:
+  boto3:
+    level: WARNING
+    handlers: [console]
+  botocore:
+    level: WARNING
+    handlers: [console]
+  s3transfer:
+    level: WARNING
+    handlers: [console]
+  matplotlib:
+    level: WARNING
+    handlers: [console]
+
+disable_existing_loggers: false
