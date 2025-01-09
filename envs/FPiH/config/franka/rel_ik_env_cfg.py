@@ -4,7 +4,7 @@ from omni.isaac.lab.controllers.differential_ik_cfg import DifferentialIKControl
 from omni.isaac.lab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from omni.isaac.lab.utils import configclass
 
-from . import joint_pos_env_cfg
+from . import jnt_pos_env_cfg
 
 ##
 # Pre-defined configs
@@ -13,7 +13,7 @@ from omni.isaac.lab_assets.franka import FRANKA_PANDA_HIGH_PD_CFG  # isort: skip
 
 
 @configclass
-class FrankaFragilePegInHoleCfg(joint_pos_env_cfg.FrankaFragilePegInHoleCfg):
+class FrankaFragilePegInHoleCfg(jnt_pos_env_cfg.FrankaFragilePegInHoleCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()

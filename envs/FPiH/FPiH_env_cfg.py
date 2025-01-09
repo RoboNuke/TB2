@@ -275,8 +275,8 @@ class RewardsCfg:
         weight=-10.0,
         params = {
             "term_keys":[
-                "peg_broke",
-                "object_dropping"
+                "peg_broke"#,
+                #"object_dropping"
             ]
         }
     )
@@ -305,10 +305,10 @@ class TerminationsCfg:
 
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
 
-    object_dropping = DoneTerm(
-        func=mdp.root_height_below_minimum, 
-        params={"minimum_height": -0.025, "asset_cfg": SceneEntityCfg("peg")}
-    )
+    #object_dropping = DoneTerm(
+    #    func=mdp.root_height_below_minimum, 
+    #    params={"minimum_height": -0.025, "asset_cfg": SceneEntityCfg("peg")}
+    #)
 
     peg_broke = DoneTerm(
         func=mdp.terminations.illegal_contact,
