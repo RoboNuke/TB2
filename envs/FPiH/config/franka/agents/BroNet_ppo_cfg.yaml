@@ -15,7 +15,7 @@ models:
 
 agent:
   class: PPO
-  rollouts: 250
+  rollouts: 50
   learning_epochs: 2
   mini_batches: 32 #500 # 128 steps / minibatch
   discount_factor: 0.99
@@ -39,7 +39,7 @@ agent:
   experiment:
     directory: "FPiH_franka"
     experiment_name: "default_BroNet_franka"
-    write_interval: 250
+    write_interval: 50
     checkpoint_interval: 2500
 
 

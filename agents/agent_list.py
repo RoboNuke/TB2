@@ -70,6 +70,7 @@ class AgentList():
                           infos: Any,
                           timestep: int,
                           timesteps: int,
+                          env,
                           alive_mask: torch.Tensor = None) -> None:
         if self.is_list:
             for agent, scope in zip(self.agents, self.agents_scope):
@@ -82,6 +83,7 @@ class AgentList():
                                         infos=infos,
                                         timestep=timestep,
                                         timesteps=timesteps,
+                                        env=env,
                                         alive_mask=alive_mask)
         else:
             return self.agents.record_transition(states=states,
@@ -93,6 +95,7 @@ class AgentList():
                                         infos=infos,
                                         timestep=timestep,
                                         timesteps=timesteps,
+                                        env=env,
                                         alive_mask=alive_mask)
 
     def set_running_mode(self, mode: str) -> None:

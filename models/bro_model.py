@@ -232,7 +232,7 @@ class BroAgent(GaussianMixin, DeterministicMixin, Model):
         layer_init(self.actor_mean.output[-2], std=0.01*np.sqrt(2)) 
  
         self.actor_logstd = nn.Parameter(
-            torch.ones(1, self.num_actions) * -1.9 #-0.5
+            torch.ones(1, self.num_actions) * -0.5 
         )
 
     def act(self, inputs, role):

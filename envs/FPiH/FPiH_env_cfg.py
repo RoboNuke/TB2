@@ -139,10 +139,10 @@ class ObservationsCfg:
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
 
-        joint_pos = ObsTerm(func=mdp.joint_pos_rel)
-        joint_vel = ObsTerm(func=mdp.joint_vel_rel)
+        joint_pos = ObsTerm(func = fpih_mdp_obs.scaled_jnt_pos_rel) #func=mdp.joint_pos_rel)
+        joint_vel = ObsTerm(func = fpih_mdp_obs.scaled_jnt_vel_rel) #mdp.joint_vel_rel)
         #object_position = ObsTerm(func=fpih_mdp_obs.object_position_in_robot_root_frame)
-        force_torque = ObsTerm(func=fpih_mdp_obs.force_torque_sensor)
+        #force_torque = ObsTerm(func=fpih_mdp_obs.force_torque_sensor)
 
         #target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose"})
         #actions = ObsTerm(func=mdp.last_action)
@@ -162,7 +162,7 @@ class ObservationsCfg:
         )
 
         def __post_init__(self):
-            self.enable_corruption = True
+            self.enable_corruption = False
             self.concatenate_terms = True
     
     @configclass
@@ -232,8 +232,8 @@ class EventCfg:
         func=fpih_mdp_events.reset_hole,
         mode="reset",
         params={
-            "pose_range": {"x": (0.565, 0.665), "y": (-0.1, 0.1), "yaw": (3.14159/2 - 3.14159/3, 3.14159/2 + 3.14159/3)},
-            #"pose_range": {"x": (0.615, 0.615)},
+            #"pose_range": {"x": (0.565, 0.665), "y": (-0.1, 0.1), "yaw": (3.14159/2 - 3.14159/3, 3.14159/2 + 3.14159/3)},
+            "pose_range": {"x": (0.615, 0.615)},
             "velocity_range": {},
             #"asset_cfg": SceneEntityCfg("hole", body_names="Hole"),
         },
@@ -260,19 +260,25 @@ class RewardsCfg:
         params={
             "asset_cfg": SceneEntityCfg("peg")
         },
-        weight= -1.0
+        weight= 0.0
     )
 
     # reward l2 dist
     dist_to_goal = RewTerm(
         func=fpih_mdp_rew.peg_hole_xy,
-        weight=5.0
+        weight=0.0
+    )
+
+    #reward i used in maniskill
+    mani_skill_reward = RewTerm(
+        func=fpih_mdp_rew.maniskill_reward,
+        weight=1.0
     )
 
     # punish failure
     failure = RewTerm(
         func=mdp.is_terminated_term,
-        weight=-10.0,
+        weight=0.0,
         params = {
             "term_keys":[
                 "peg_broke"#,
@@ -283,7 +289,7 @@ class RewardsCfg:
     # reward success
     success = RewTerm(
         func = mdp.is_terminated_term,
-        weight=100,
+        weight=1.0,
         params={
             "term_keys":["success"]
         }
@@ -377,7 +383,7 @@ class FragilePegInHoleEnvCfg(ManagerBasedRLEnvCfg):
         )
         """Post initialization."""
         # general settings
-        self.decimation = 2
+        self.decimation = 10
         self.episode_length_s = 5.0
         # simulation settings
         self.sim.dt = 0.01  # 100Hz

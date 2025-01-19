@@ -22,9 +22,48 @@ def minMaxPannel(
             metric_name + " (min)"
         ],
         title_y= y_title,
-        plot_type="line"
+        plot_type="line",
+        aggregate=True,
+        groupby=None,
+        groupby_aggfunc="mean"
 
     )
+
+def singlePlotPannel(
+        metric_name,
+        y_title,
+        title
+    ):
+    return wr.LinePlot(
+        title=title, 
+        x="Step", 
+        y=[metric_name], 
+        title_y = y_title, 
+        plot_type="line",
+        aggregate=True,
+        groupby=None,
+        groupby_aggfunc="mean"
+    )
+
+def stackedTermPlot(
+        metric_name,
+        term_conds,
+        title,
+        y_label,
+        percent = False
+        
+):
+    return wr.LinePlot(
+        title=title,
+        x="Step",
+        title_x="Steps",
+        y=[metric_name + con for con in term_conds],
+        title_y= y_label,
+        plot_type= "pct-area" if percent else "stacked-area",
+        aggregate=True,
+        groupby=None,
+        groupby_aggfunc="mean"
+    )    
 
 if __name__ == "__main__":
     api = wandb.Api()
@@ -39,7 +78,7 @@ if __name__ == "__main__":
         name="IsaacLab RL Analysis Workspace"
     )
     workspace.settings.remove_legends_from_panels = True
-    workspace.settings.max_runs = 1
+    #workspace.settings.max_runs = 1
     #workspace = ws.Workspace.from_url("https://wandb.ai/hur/Tester?nw=nwuserrobonuke") #?nw=mcemps4n97n")
     """print("Init Sections:")
     for i in workspace.sections:
@@ -49,14 +88,16 @@ if __name__ == "__main__":
     for i in workspace.sections:
         print("\t", i.name)"""
     
-
+    term_cons = ["success", "time_out", "peg_broke"]
     sections = {
         "Episode Length-Final":[
-            ("Evaluation Episode Length", "Eval Episode / Total Timesteps", "Steps"),
-            ("Training Episode Length", "Training Episode / Total Timesteps", "Steps")
+            ("Evaluation Episode Length", "Eval Episode / Total timesteps", "Steps"),
+            ("Training Episode Length", "Training Episode / Total timesteps", "Steps")
         ],
         "Termination Conditions-Final":[
-            "success", "time_out", "peg_broke"
+            ("Evaluation Termination Conditions", "Eval Termination /", term_cons, "Episodes"),
+            ("Training Termination Conditions (%)", "Training Termination /", term_cons, "Percent (%)"),
+            ("Training Termination Conditions", "Training Termination /", term_cons, "Episodes")
         ],
         "Training Reward-Final":[
             ("Avg Reward", "Training Reward / Instantaneous reward", "Reward"),
@@ -75,14 +116,14 @@ if __name__ == "__main__":
             ("Avg Alignment Reward", "Eval Reward / Step alignment", "Reward")
         ],
         "Training Smoothness-Final":[
-            #("Peg Force", "Training Smoothness / Force", "Force (N)"),
-            ("Sum of Squared Velocity", "Training Smoothness / Step Squared Joint Velocity", "SSV"),# (m/s)^2"),
-            ("Jerk", "Training Smoothness / Step Jerk", "Jerk "),#(m/s^2)^2")
+            ("Peg Force", "Training Smoothness / Force", "Force (N)"),
+            ("Sum of Squared Velocity", "Training Smoothness / Step  Squared Joint Velocity", "SSV"),# (m/s)^2"),
+            ("Jerk", "Training Smoothness / Step  Jerk", "Jerk "),#(m/s^2)^2")
         ],
         "Evaluation Smoothness-Final":[
-            #("Peg Force", "Eval Smoothness / Force", "Force (N)"),
-            ("Sum of Squared Velocity", "Eval Smoothness / Step Squared Joint Velocity", "SSV"),# (m/s)^2"),
-            ("Jerk", "Eval Smoothness / Step Jerk", "Jerk"),# (m/s^2)^2")
+            ("Peg Force", "Eval Smoothness / Force", "Force (N)"),
+            ("Sum of Squared Velocity", "Eval Smoothness / Step  Squared Joint Velocity", "SSV"),# (m/s)^2"),
+            ("Jerk", "Eval Smoothness / Step  Jerk", "Jerk"),# (m/s^2)^2")
         ],
         "Media-Final":[],
         "Loss + Std Dev-Final":[
@@ -100,13 +141,34 @@ if __name__ == "__main__":
             is_open=True
         )
         print(sect_title)
-        if sect_title == "Termination Conditions-Final" or sect_title == "Media-Final":
+        if "Media" in sect_title:
             print(f"\tSkipping {sect_title}")
             pass # do these by hand cuz they quick
-        else:
-            #print("\t", sect_data)
+        elif "Termination Conditions" in sect_title:
+            for pan_title, metric_name, term_cons, y_label in sect_data:
+                print(f"\t{pan_title}")
+                new_sect.panels.append(
+                    stackedTermPlot(
+                        metric_name,
+                        term_cons,
+                        pan_title,
+                        y_label,
+                        "%" in pan_title
+                    )
+                )
+        elif 'Loss' in sect_title:
             for pan_title, metric_key, y_label in sect_data:
-                print("\t", pan_title, metric_key, y_label)
+                print("\t", pan_title)
+                new_sect.panels.append(
+                    singlePlotPannel(
+                        metric_key,
+                        y_label,
+                        pan_title
+                    )
+                )
+        else:
+            for pan_title, metric_key, y_label in sect_data:
+                print("\t", pan_title)
                 new_sect.panels.append(
                     minMaxPannel(
                         metric_key,

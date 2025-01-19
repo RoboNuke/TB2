@@ -235,7 +235,7 @@ class InfoRecordVideo(gym.Wrapper, gym.utils.RecordConstructorArgs):
             torchvision.io.write_video(
                 self.video_path_full, 
                 self.frames[:self.recorded_frames,:,:,:].cpu(), 
-                fps=50
+                fps=10
             )
         self.recording = False
         self.recorded_frames = 0

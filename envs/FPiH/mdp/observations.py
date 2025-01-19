@@ -9,6 +9,7 @@ from omni.isaac.lab.utils.math import subtract_frame_transforms, quat_apply
 from omni.isaac.core.articulations import ArticulationView
 
 
+from omni.isaac.lab.envs import mdp
 import cv2
 
 if TYPE_CHECKING:
@@ -105,7 +106,7 @@ def is_peg_inserted(
     dz = torch.abs(peg_pos[:,2] - hole_pos[:,2])
 
     
-    return torch.logical_and(dxy < xy_thresh, dz < z_thresh)
+    return torch.logical_and(dxy < xy_thresh, dz < 0.05)
 
 
 def joint_acc_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
@@ -116,3 +117,27 @@ def joint_acc_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityC
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
     return asset.data.joint_acc[:, asset_cfg.joint_ids]
+
+
+def scaled_jnt_pos_rel(
+        env: ManagerBasedRLEnv
+):
+    robot: Articulation = env.scene['robot']
+    lims = robot.data.joint_limits
+    bot = lims[:,:,0]
+    top = lims[:,:,1]
+    joint_pos_rel = mdp.joint_pos_rel(env)
+    scaled = (joint_pos_rel - bot) / (top - bot )
+    return scaled
+
+def scaled_jnt_vel_rel(
+        env: ManagerBasedRLEnv
+):
+    robot: Articulation = env.scene['robot']
+    lims = robot.data.joint_velocity_limits
+
+    joint_vel_rel = mdp.joint_vel_rel(env)
+
+    scaled = joint_vel_rel / lims
+    #print("vel:", joint_vel_rel, lims, scaled)
+    return scaled

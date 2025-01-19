@@ -125,7 +125,7 @@ class WandbLoggerPPO(PPO):
 
     def track_video_path(self, tag: str, value: str, timestep)-> None:
         self.tracking_data[tag + "_video"].append(value)
-        self.tracking_data[tag + "_video"].append(timestep)
+        self.tracking_data[tag + "_video"].append(timestep * self.num_envs)
         #self.data_manager.add_mp4(value, step= timestep * self.num_envs, cap=tag, fps=30)
 
     def track_hist(self, tag: str, value: torch.Tensor, timestep: int) -> None:
@@ -253,6 +253,7 @@ class WandbLoggerPPO(PPO):
                         infos: Any,
                         timestep: int,
                         timesteps: int,
+                        env,
                         alive_mask: torch.Tensor = None) -> None:
         """Record an environment transition in memory
 
@@ -300,7 +301,7 @@ class WandbLoggerPPO(PPO):
                 memory.add_samples(states=states, actions=actions, rewards=rewards, next_states=next_states,
                                    terminated=terminated, truncated=truncated, log_prob=self._current_log_prob, values=values)
         
-
+        #print('eval mode:', 'on' if eval_mode else 'off')
         if self.write_interval > 0 or eval_mode:
             # compute the cumulative sum of the rewards and timesteps
             if self._cumulative_rewards is None:
@@ -311,53 +312,43 @@ class WandbLoggerPPO(PPO):
                 self.count_stats = {}
                 self.old_rewards = {}
 
+                #print('Termination Keys')
                 for info_key in infos.keys():
-                    #print(info_key)
-                    for key in infos[info_key]:
+                    if not (type(infos[info_key]) == dict):
+                        continue
+                    for key in infos[info_key].keys():
                         #print(f"\t{key}")
                         if key.startswith("Episode_Termination"):
+                            #print(f'\t{key}')
                             self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
                         elif key.startswith("Episode_Reward"):
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
                             self.old_rewards[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
                         else:
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
-                            #print(key, m4_returns[key].shape)
-
-            for big_key in infos.keys():#if 'log' in infos or 'smoothness' in infos:
-                # get total number of terminations (failures) of all envs
-                tot = 0
-                for k in self.count_stats.keys():
-                    tot += infos['log'][k]
-                
-                # get number of envs that terminated for the first time
-                if eval_mode:
-                    tot_first_term = torch.sum(alive_mask * terminated)
-
+                            
+            # this is a less efficent way to get the termination conditions, but isaac lab api has some issues
+            # with not updating those buffers correctly so this is more accurate
+            for big_key in infos.keys():
                 for k, v in infos[big_key].items():
+                    #print(f'\t\t{k}:{v}')
                     if k in self.m4_returns.keys():
                         if eval_mode:
                             self.m4_returns[k] += (v * alive_mask)
                         else:
                             self.m4_returns[k] += v
-                    elif "time_out" in k:
-                        #if torch.sum(alive_mask * truncated) > 0:
-                        #    print("time_outed:", torch.sum(alive_mask * truncated))
+                    else: # it is a count stats key 
+                        key = k.split("/")[-1]
                         if eval_mode:
-                            self.count_stats[k] += torch.sum(alive_mask * truncated)
+                            self.count_stats[k] += torch.sum( 
+                                torch.logical_and(
+                                    alive_mask.T, 
+                                    env.unwrapped.termination_manager.get_term(key)
+                                )
+                            )
                         else:
-                            self.count_stats[k] += torch.sum(truncated)
-                    elif k in self.count_stats.keys() and tot > 0.5:
-                        # we cannont reliably determine which environment caused which failure
-                        # so we assume each failure case is equally possible and add partial values
-                        # to their running sum.  I.E 2 peg_broke and 8 peg_fall, with 4 envs that had previous
-                        # not failed.  We would then add 4 * 0.2 to the peg_broke total and 0.8*4 to the peg_fall total
-                        #
-                        if eval_mode:
-                            self.count_stats[k] += tot_first_term * v / tot
-                        else:
-                            # This is not an issue when training as we just want a raw count
-                            self.count_stats[k] += v
+                            self.count_stats[k] += torch.sum(env.unwrapped.termination_manager.get_term(key))
+
             # handle reward 
             prefix = "Training"
             if eval_mode:
@@ -416,7 +407,7 @@ class WandbLoggerPPO(PPO):
             
 
             finished_episodes = (terminated + truncated).nonzero(as_tuple=False)
-            if finished_episodes.numel():
+            if finished_episodes.numel() and not eval_mode:
                 # storage cumulative rewards and timesteps
                 self._track_rewards.extend(self._cumulative_rewards[finished_episodes][:, 0].reshape(-1).tolist())
                 self._track_timesteps.extend(self._cumulative_timesteps[finished_episodes][:, 0].reshape(-1).tolist())

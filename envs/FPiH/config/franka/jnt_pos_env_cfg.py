@@ -85,16 +85,16 @@ class FrankaFragilePegInHoleCfg(FragilePegInHoleEnvCfg):
         """
 
         peg_cfgs, box_cfgs, self.peg_offsets, self.hole_init_poses = self.get_asset_cfgs( 
-            radii = (0.015, 0.025),
-            lengths = (0.085, 0.125),
+            radii = (0.025, 0.025), #(0.015, 0.025),
+            lengths = (0.125, 0.125), #(0.085, 0.125),
             clearance = 0.003
         )
         
         self.scene.peg = RigidObjectCfg(
             prim_path="{ENV_REGEX_NS}/Peg",
-            init_state=RigidObjectCfg.InitialStateCfg(
-                pos=[0.5, 0.5, 0.0125], rot=[0.707, 0.707, 0, 0]
-            ),
+            #init_state=RigidObjectCfg.InitialStateCfg(
+            #    pos=[0.5, 0.5, 0.0125], rot=[0.707, 0.707, 0, 0]
+            #),
             spawn = sim_utils.MultiAssetSpawnerCfg(
                 assets_cfg=peg_cfgs,
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
@@ -116,12 +116,14 @@ class FrankaFragilePegInHoleCfg(FragilePegInHoleEnvCfg):
             )
         )
 
+
+
         self.have_peg_pose = False
         self.recording = False
 
         self.scene.peg_end_frame = FrameTransformerCfg(
             prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
-            debug_vis=False,
+            debug_vis=True,
             #visualizer_cfg=None,
             target_frames=[
                 FrameTransformerCfg.FrameCfg(
@@ -133,7 +135,7 @@ class FrankaFragilePegInHoleCfg(FragilePegInHoleEnvCfg):
                 ),
             ],
         )
-        self.scene.peg_end_frame.visualizer_cfg.markers["frame"].scale = (0.025, 0.025, 0.025)
+        self.scene.peg_end_frame.visualizer_cfg.markers["frame"].scale = (0.05, 0.05, 0.05)
         self.scene.peg_end_frame.visualizer_cfg.prim_path="/Visuals/peg_end_frame"
         
         
@@ -263,7 +265,7 @@ class FrankaFragilePegInHoleCfg(FragilePegInHoleEnvCfg):
                                 )
                 
                 hole_cfgs[idx], hole_init_states[idx] = self.calcHole(
-                                    peg_width = float(1.414 * r + clearance), 
+                                    peg_width = float(2*r + 2*clearance), #float(1.414 * r + clearance), 
                                     peg_height = float(l)
                                 )
                 idx += 1

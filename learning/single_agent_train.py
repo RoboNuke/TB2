@@ -16,7 +16,7 @@ parser.add_argument("--force_encoding", type=str, default=None, help="Which type
 parser.add_argument("--eval_videos", action="store_true", default=False, help="Record videos of evaluations")
 parser.add_argument("--train_videos", action="store_true", default=False, help="Record videos of training at fixed interval")
 parser.add_argument("--train_video_interval", type=int, default=1000, help="Interval between video recordings (in steps).")
-parser.add_argument("--train_video_length", type=int, default=250, help="Length of the recorded video (in steps).")
+parser.add_argument("--train_video_length", type=int, default=50, help="Length of the recorded video (in steps).")
 
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")
@@ -24,7 +24,7 @@ parser.add_argument("--exp_dir", type=str, default=None, help="Directory to stor
 parser.add_argument("--dump_yaml", action="store_true", default=False, help="Store config files in yaml format")
 parser.add_argument("--dump_pickle", action="store_true", default=False, help="Store config files in pickle format")
 parser.add_argument("--checkpoint_interval", type=int, default=None, help="How many ENV steps (not total steps) between saving checkpoints")
-parser.add_argument("--log_smoothness_metrics", type=bool, default=True, help="Log the sum squared velocity, jerk and force metrics")
+parser.add_argument("--log_smoothness_metrics", action="store_true", default=False, help="Log the sum squared velocity, jerk and force metrics")
 
 # learning
 parser.add_argument("--learning_epochs", type=int, default=None)
@@ -87,6 +87,8 @@ from omni.isaac.lab.utils.io import dump_pickle, dump_yaml
 
 import omni.isaac.lab_tasks  # noqa: F401
 import envs.FPiH.config.franka
+import envs.factory.direct
+import envs.factory.manager
 from omni.isaac.lab_tasks.utils.hydra import hydra_task_config
 from omni.isaac.lab_tasks.utils.wrappers.skrl import SkrlVecEnvWrapper
 from agents.wandb_logger_ppo_agent import WandbLoggerPPO
@@ -98,7 +100,7 @@ set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
 
 #agent_cfg_entry_point = "skrl_cfg_entry_point"
 agent_cfg_entry_point = "BroNet_cfg_entry_point"
-
+#agent_cfg_entry_point = "rl_games_cfg_entry_point"
 evaluating = False
 
 @hydra_task_config(args_cli.task, agent_cfg_entry_point)
@@ -108,6 +110,7 @@ def main(
 ):
     global evaluating
     print("starting main")
+    print(agent_cfg)
     """Train with skrl agent."""
     max_rollout_steps = agent_cfg['agent']['rollouts']
 
@@ -230,6 +233,8 @@ def main(
         #env = ExtRecordVideo(env, **video_kwargs)
         env = InfoRecordVideo(env, **video_kwargs)
         vid_env = env
+    else:
+        vid_env = None
 
     if args_cli.log_smoothness_metrics:
         print("[INFO] Recording Smoothness Metrics in info.")

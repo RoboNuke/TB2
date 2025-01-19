@@ -107,9 +107,15 @@ class ExtSequentialTrainer(Trainer):
                 )
                 
                 # step the environments
+                #print("before len buf:\t", self.env.unwrapped.episode_length_buf)
+                #print("before timout:", self.env.unwrapped.termination_manager.get_term("time_out"))
                 next_states, rewards, terminated, truncated, infos = self.env.step(actions)
-
-                if vid_env.is_recording():
+                #print("after timout:", self.env.unwrapped.termination_manager.get_term("time_out"))
+                #print("termed:\t", self.env.unwrapped.termination_manager.terminated)
+                #print("time_outs:\t", self.env.unwrapped.termination_manager.time_outs)
+                #print("after len buf:\t", self.env.unwrapped.episode_length_buf)
+                infos['log']['Episode_Termination/time_out'] = truncated.sum()
+                if vid_env is not None and vid_env.is_recording():
                     self.env.cfg.recording = True
 
                 #print(infos['smoothness'])
@@ -127,6 +133,7 @@ class ExtSequentialTrainer(Trainer):
                     truncated=truncated,
                     infos=infos,
                     timestep=timestep,
+                    env=self.env,
                     timesteps=self.timesteps
                 )
 
@@ -224,7 +231,16 @@ class ExtSequentialTrainer(Trainer):
                     #print(self.env._observations)
                     # step the environments
                     next_states, rewards, terminated, truncated, infos = self.env.step(actions)
-                    if vid_env.is_recording():
+                    """for big_key in infos.keys():
+                        print(big_key)
+                        if type(big_key) == dict:
+                            for l_key in infos[big_key].keys():
+                                print(f'\t{l_key}')
+                    #print(next_states.size())"""
+                    #infos['log']['Episode_Termination/time_out'] = truncated.sum()
+                    #print("termed:\t", self.env.unwrapped.termination_manager.terminated)
+                    #print("time_outs:\t", self.env.unwrapped.termination_manager.time_outs)
+                    if vid_env is not None and vid_env.is_recording():
                         self.env.cfg.recording = True
                     
                     mask_update = 1 - torch.logical_or(terminated, truncated).float()
@@ -270,6 +286,7 @@ class ExtSequentialTrainer(Trainer):
                         infos=infos,
                         timestep=timestep,
                         timesteps=self.timesteps,
+                        env=self.env,
                         alive_mask = alive_mask
                     )
 

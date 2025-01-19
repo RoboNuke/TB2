@@ -82,6 +82,7 @@ def main():
     sim.set_camera_view([2.5, 0.0, 4.0], [0.0, 0.0, 2.0])
     # Design scene
     scene_cfg = FrankaFragilePegInHoleCfg(num_envs=args_cli.num_envs, replicate_physics=False)
+    
     scene = InteractiveScene(scene_cfg.scene)
     # Play the simulator
     sim.reset()
