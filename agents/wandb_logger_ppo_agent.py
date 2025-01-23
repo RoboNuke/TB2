@@ -331,12 +331,21 @@ class WandbLoggerPPO(PPO):
             # with not updating those buffers correctly so this is more accurate
             for big_key in infos.keys():
                 for k, v in infos[big_key].items():
+                    #print("Manager:", env.unwrapped.reward_manager._episode_sums["keypoint_baseline"])
                     #print(f'\t\t{k}:{v}')
                     if k in self.m4_returns.keys():
-                        if eval_mode:
-                            self.m4_returns[k] += (v * alive_mask)
+                        rew = v
+                        if 'Reward' in k:
+                            rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
+                            if eval_mode:
+                                self.m4_returns[k] = (rew * alive_mask)
+                            else:
+                                self.m4_returns[k] = rew
                         else:
-                            self.m4_returns[k] += v
+                            if eval_mode:
+                                self.m4_returns[k] += (rew * alive_mask)
+                            else:
+                                self.m4_returns[k] += rew
                     else: # it is a count stats key 
                         key = k.split("/")[-1]
                         if eval_mode:
@@ -367,6 +376,7 @@ class WandbLoggerPPO(PPO):
                 torch.mean(infos['smoothness']['Smoothness / Damage Force']).item()
             )
             for k, v in self.m4_returns.items():
+                #print(k, "\t", v[0].item())
                 if 'Force' in k or "Torque" in k:
                     continue
                 elif 'Episode_Reward/' in k:
@@ -375,7 +385,10 @@ class WandbLoggerPPO(PPO):
                     idx = k.index("/") + 1 
                     my_k = prefix + k[:idx]
                     my_k = my_k.replace('Episode_Reward/', " Reward /")
+                    
                     step_vals = v.clone() - self.old_rewards[k]
+                    #if 'baseline' in k:
+                    #    print(step_vals[0].item(), v[0].item(), self.old_rewards[k][0].item())
                     #if "dist_to_goal" in k[idx:]:
                     #    print(step_vals[0], v[0], self.old_rewards[k][0])
                     self.track_data(f'{my_k + " Step " + k[idx:]} (mean)', torch.mean(step_vals).item())
@@ -400,9 +413,14 @@ class WandbLoggerPPO(PPO):
                 self._cumulative_timesteps[alive_mask] += 1
                 mask_update = ~torch.logical_or(terminated, truncated)
                 alive_mask *= mask_update
+
             else:
                 self._cumulative_rewards.add_(rewards)
                 self._cumulative_timesteps.add_(1)
+                mask_update = ~torch.logical_or(terminated, truncated)
+                for k,v in self.m4_returns.items():
+                    if "Reward" in k:
+                        self.old_rewards[k] *= mask_update
 
             
 

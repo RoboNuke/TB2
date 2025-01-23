@@ -223,6 +223,7 @@ class InfoRecordVideo(gym.Wrapper, gym.utils.RecordConstructorArgs):
             elif self._video_enabled():
                 self.start_video_recorder(observations, infos)
 
+
         return observations, rewards, terminateds, truncateds, infos
 
     def close_video_recorder(self):

@@ -74,8 +74,8 @@ if __name__ == "__main__":
 
     workspace = ws.Workspace(
         entity="hur",
-        project="TB2_Early_Tests",
-        name="IsaacLab RL Analysis Workspace"
+        project="Tester",
+        name="IsaacLab-Factory RL Analysis Workspace"
     )
     workspace.settings.remove_legends_from_panels = True
     #workspace.settings.max_runs = 1
@@ -102,18 +102,24 @@ if __name__ == "__main__":
         "Training Reward-Final":[
             ("Avg Reward", "Training Reward / Instantaneous reward", "Reward"),
             ("Return", "Training Reward / Return", "Reward"),
-            ("Avg Distance to Goal Reward", "Training Reward / Step dist_to_goal", "Reward"),
-            ("Avg Success Reward","Training Reward / Step success", "Reward"),
-            ("Avg Failure Reward", "Training Reward / Step failure", "Reward"),
-            ("Avg Alignment Reward", "Training Reward / Step alignment", "Reward")
+            #("Avg Distance to Goal Reward", "Training Reward / Step dist_to_goal", "Reward"),
+            #("Avg Success Reward","Training Reward / Step success", "Reward"),
+            #("Avg Failure Reward", "Training Reward / Step failure", "Reward"),
+            #("Avg Alignment Reward", "Training Reward / Step alignment", "Reward")
+            ("Avg Baseline Keypoint", "Training Reward / Step keypoint_baseline", "Reward"),
+            ("Avg Coarse Keypoint", "Training Reward / Step keypoint_coarse", "Reward"),
+            ("Avg Fine Keypoint", "Training Reward / Step keypoint_fine", "Reward"),
         ],
         "Evaluation Reward-Final":[
             ("Avg Reward", "Eval Reward / Instantaneous reward", "Reward"),
             ("Return", "Eval Reward / Return", "Reward"),
-            ("Avg Distance to Goal Reward", "Eval Reward / Step dist_to_goal", "Reward"),
-            ("Avg Success Reward","Eval Reward / Step success", "Reward"),
-            ("Avg Failure Reward", "Eval Reward / Step failure", "Reward"),
-            ("Avg Alignment Reward", "Eval Reward / Step alignment", "Reward")
+            #("Avg Distance to Goal Reward", "Eval Reward / Step dist_to_goal", "Reward"),
+            #("Avg Success Reward","Eval Reward / Step success", "Reward"),
+            #("Avg Failure Reward", "Eval Reward / Step failure", "Reward"),
+            #("Avg Alignment Reward", "Eval Reward / Step alignment", "Reward")
+            ("Avg Baseline Keypoint", "Eval Reward / Step keypoint_baseline", "Reward"),
+            ("Avg Coarse Keypoint", "Eval Reward / Step keypoint_coarse", "Reward"),
+            ("Avg Fine Keypoint", "Eval Reward / Step keypoint_fine", "Reward"),
         ],
         "Training Smoothness-Final":[
             ("Peg Force", "Training Smoothness / Force", "Force (N)"),

@@ -16,7 +16,7 @@ parser.add_argument("--force_encoding", type=str, default=None, help="Which type
 parser.add_argument("--eval_videos", action="store_true", default=False, help="Record videos of evaluations")
 parser.add_argument("--train_videos", action="store_true", default=False, help="Record videos of training at fixed interval")
 parser.add_argument("--train_video_interval", type=int, default=1000, help="Interval between video recordings (in steps).")
-parser.add_argument("--train_video_length", type=int, default=50, help="Length of the recorded video (in steps).")
+parser.add_argument("--train_video_length", type=int, default=75, help="Length of the recorded video (in steps).")
 
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")

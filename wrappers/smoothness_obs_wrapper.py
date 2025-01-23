@@ -35,6 +35,7 @@ class SmoothnessObservationWrapper(gym.Wrapper):
     def step(self, action):
         #observation, r, term, trun, info = self.unwrapped.step(action)
         observation, r, term, trun, info = self.env.step(action)
+        
         if self.old_acc is None:
             self.old_acc = torch.zeros_like(observation['info']['joint_acc'])
 

@@ -311,8 +311,20 @@ class EventCfg:
         mode="reset"
     )
 
+
+    randomize_fixed_asset_init = EventTerm(
+        func=fac_mdp_events.reset_fixed_asset,
+        mode="reset",
+        #params={
+        #    #"pose_range": {"x": (0.565, 0.665), "y": (-0.1, 0.1), "yaw": (3.14159/2 - 3.14159/3, 3.14159/2 + 3.14159/3)},
+        #    "pose_range": {"x": (0.615, 0.615)},
+        #    "velocity_range": {},
+        #    #"asset_cfg": SceneEntityCfg("hole", body_names="Hole"),
+        #},
+    )
+
     randomize_init_state = EventTerm(
-        func=fac_mdp_events.randomize_init_state,
+        func=fac_mdp_events.reset_held_asset,
         mode="reset"
     )
 

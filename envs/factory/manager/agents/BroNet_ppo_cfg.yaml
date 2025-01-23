@@ -39,9 +39,13 @@ agent:
   experiment:
     directory: "FPiH_franka"
     experiment_name: "default_BroNet_franka"
-    write_interval: 75
-    checkpoint_interval: 2500
+    write_interval: 150
+    checkpoint_interval: 3000
 
+videos:
+  record_training: True
+  training_interval: 925
+  record_eval: True
 
 
 defaults:

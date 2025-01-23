@@ -15,7 +15,7 @@ import cv2
 if TYPE_CHECKING:
     from omni.isaac.lab.envs import ManagerBasedRLEnv
 
-from envs.factory.manager.mdp.events import compute_intermediate_values
+from envs.factory.manager.mdp.events import compute_keypoint_value
 
 def scaled_jnt_pos_rel(
         env: ManagerBasedRLEnv
@@ -33,8 +33,9 @@ def held_asset_pose(
         env: ManagerBasedRLEnv
 ):
     try:
-        compute_intermediate_values(env, dt=env.physics_dt)
-        return torch.cat([env.held_pos, env.held_quat], dim=1)
+        compute_keypoint_value(env, dt=env.physics_dt)
+        #print("Held pose", env.target_held_base_pos.device, env.target_held_base_quat.device)
+        return torch.cat([env.target_held_base_pos, env.target_held_base_quat], dim=1)
     except:
         return torch.zeros(env.num_envs, 7)
 
@@ -42,7 +43,8 @@ def fixed_asset_pose(
         env: ManagerBasedRLEnv
 ):
     try:
-        compute_intermediate_values(env, dt=env.physics_dt)
+        compute_keypoint_value(env, dt=env.physics_dt)
+        #print("Fixed Pose:", env.fixed_pos.device, env.fixed_quat.device)
         return torch.cat([env.fixed_pos, env.fixed_quat], dim=1)
     except:
         return torch.zeros(env.num_envs, 7)
@@ -51,7 +53,6 @@ def force_torque_sensor(
         env: ManagerBasedRLEnv,
         frame: str = "panda_joint_1"
 ):
-    
     try:
         return env.robot_av.get_measured_joint_forces()[:,8,:]
     except:

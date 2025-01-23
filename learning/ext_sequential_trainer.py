@@ -275,7 +275,7 @@ class ExtSequentialTrainer(Trainer):
                     m4_returns['returns'] += rewards * alive_mask 
                     steps_to_death += alive_mask
                     """
-                    
+                    #print("Trainer in:", infos['log']["Episode_Reward/keypoint_baseline"])
                     alive_mask = self.abs_agent.record_transition(
                         states=states,
                         actions=actions,
