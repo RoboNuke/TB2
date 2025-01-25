@@ -89,9 +89,10 @@ class WandbLoggerPPO(PPO):
 
 
         # setup Weights & Biases
-        
+        self.log_wandb = False
         if self.cfg.get("experiment", {}).get("wandb", False):
             # save experiment configuration
+
             try:
                 models_cfg = {k: v.net._modules for (k, v) in self.models.items()}
             except AttributeError:
@@ -122,6 +123,7 @@ class WandbLoggerPPO(PPO):
                 config=wandb_config,
                 tags=wandb_kwargs['tags']
             )
+            self.log_wandb = True
 
     def track_video_path(self, tag: str, value: str, timestep)-> None:
         self.tracking_data[tag + "_video"].append(value)
@@ -151,64 +153,66 @@ class WandbLoggerPPO(PPO):
         :param timesteps: Number of timesteps
         :type timesteps: int
         """
-        prefix = "Training"
-        if eval:
-            prefix = "Eval"
+        if self.log_wandb:
+            prefix = "Training"
+            if eval:
+                prefix = "Eval"
 
-        # handle cumulative rewards
-        if len(self._track_rewards):
-            track_rewards = np.array(self._track_rewards)
-            track_timesteps = np.array(self._track_timesteps)
+            # handle cumulative rewards
+            if len(self._track_rewards):
+                track_rewards = np.array(self._track_rewards)
+                track_timesteps = np.array(self._track_timesteps)
+                
+                self.tracking_data[prefix + " Reward / Return (max)"].append(np.max(track_rewards))
+                self.tracking_data[prefix + " Reward / Return (min)"].append(np.min(track_rewards))
+                self.tracking_data[prefix + " Reward / Return (mean)"].append(np.mean(track_rewards))
+
+                self.tracking_data[prefix + " Episode / Total timesteps (max)"].append(np.max(track_timesteps))
+                self.tracking_data[prefix + " Episode / Total timesteps (min)"].append(np.min(track_timesteps))
+                self.tracking_data[prefix + " Episode / Total timesteps (mean)"].append(np.mean(track_timesteps))
+
+            keep = {}
+            for k, v in self.tracking_data.items():
+                if k.endswith("_video"):
+                    try:
+                        self.data_manager.add_mp4(
+                            v[0], # path
+                            k[:-6], #tag
+                            timestep * self.num_envs, # step
+                            f"At timestep {v[1]}" # caption
+                        )
+                    except FileNotFoundError:
+                        keep[k] = v
+                elif k.endswith("(min)"):
+                    self.data_manager.add_scalar({k:np.min(v)}, timestep * self.num_envs)
+                elif k.endswith("(max)"):
+                    self.data_manager.add_scalar({k:np.max(v)}, timestep * self.num_envs)
+                else:
+                    self.data_manager.add_scalar({k:np.mean(v)}, timestep * self.num_envs)
+
+                if k in self.m4_returns:
+                    self.m4_returns[k] *= 0
+                
             
-            self.tracking_data[prefix + " Reward / Return (max)"].append(np.max(track_rewards))
-            self.tracking_data[prefix + " Reward / Return (min)"].append(np.min(track_rewards))
-            self.tracking_data[prefix + " Reward / Return (mean)"].append(np.mean(track_rewards))
+            # handle counting stats
 
-            self.tracking_data[prefix + " Episode / Total timesteps (max)"].append(np.max(track_timesteps))
-            self.tracking_data[prefix + " Episode / Total timesteps (min)"].append(np.min(track_timesteps))
-            self.tracking_data[prefix + " Episode / Total timesteps (mean)"].append(np.mean(track_timesteps))
-
-        keep = {}
-        for k, v in self.tracking_data.items():
-            if k.endswith("_video"):
-                try:
-                    self.data_manager.add_mp4(
-                        v[0], # path
-                        k[:-6], #tag
-                        timestep * self.num_envs, # step
-                        f"At timestep {v[1]}" # caption
-                    )
-                except FileNotFoundError:
-                    keep[k] = v
-            elif k.endswith("(min)"):
-                self.data_manager.add_scalar({k:np.min(v)}, timestep * self.num_envs)
-            elif k.endswith("(max)"):
-                self.data_manager.add_scalar({k:np.max(v)}, timestep * self.num_envs)
-            else:
-                self.data_manager.add_scalar({k:np.mean(v)}, timestep * self.num_envs)
-
-            if k in self.m4_returns:
-                self.m4_returns[k] *= 0
-            
-        
-        # handle counting stats
-
-        for k,v in self.count_stats.items():
-            idx = k.index("/") + 1 
-            my_k = prefix + k
-            my_k = my_k.replace('Episode_Termination/', ' Termination /')
-            #self.track_data(my_k, v.item())
-            self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
-            self.count_stats[k] *= 0
+            for k,v in self.count_stats.items():
+                idx = k.index("/") + 1 
+                my_k = prefix + k
+                my_k = my_k.replace('Episode_Termination/', ' Termination /')
+                #self.track_data(my_k, v.item())
+                self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
+                self.count_stats[k] *= 0
 
         # reset data containers for next iteration
         self._track_rewards.clear()
         self._track_timesteps.clear()
         self.tracking_data.clear()
         
-
-        for k, v in keep.items():
-            self.tracking_data[k] = v
+        
+        if self.log_wandb:
+            for k, v in keep.items():
+                self.tracking_data[k] = v
 
     def post_interaction(self, timestep: int, timesteps: int) -> None:
         """Callback called after the interaction with the environment
@@ -368,13 +372,15 @@ class WandbLoggerPPO(PPO):
             self.tracking_data[prefix + " Reward / Instantaneous reward (min)"].append(torch.min(rewards).item())
             self.tracking_data[prefix + " Reward / Instantaneous reward (mean)"].append(torch.mean(rewards).item())
 
-            # handle force data
-            self.tracking_data[prefix + " Smoothness / Force (max)"].append(
-                torch.max(infos['smoothness']['Smoothness / Damage Force']).item()
-            )
-            self.tracking_data[prefix + " Smoothness / Force (mean)"].append(
-                torch.mean(infos['smoothness']['Smoothness / Damage Force']).item()
-            )
+
+            if 'smoothness' in infos.keys():
+                # handle force data
+                self.tracking_data[prefix + " Smoothness / Force (max)"].append(
+                    torch.max(infos['smoothness']['Smoothness / Damage Force']).item()
+                )
+                self.tracking_data[prefix + " Smoothness / Force (mean)"].append(
+                    torch.mean(infos['smoothness']['Smoothness / Damage Force']).item()
+                )
             for k, v in self.m4_returns.items():
                 #print(k, "\t", v[0].item())
                 if 'Force' in k or "Torque" in k:
@@ -451,5 +457,8 @@ class WandbLoggerPPO(PPO):
 
         self._track_rewards.clear()
         self._track_timesteps.clear() 
-            
+
+    def set_running_mode(self, mode):
+        super().set_running_mode(mode)
+        self.reset_tracking() 
 

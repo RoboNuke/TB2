@@ -23,7 +23,8 @@ class InfoRecordVideo(gym.Wrapper, gym.utils.RecordConstructorArgs):
         video_length: int = 0,
         name_prefix: str = "rl-video",
         disable_logger: bool = False,
-        num_envs: int = 8
+        num_envs: int = 8,
+        fps: int = 10
     ):
         """Wrapper records videos of rollouts.
 
@@ -38,7 +39,7 @@ class InfoRecordVideo(gym.Wrapper, gym.utils.RecordConstructorArgs):
             disable_logger (bool): Whether to disable moviepy logger or not.
         """
         gym.Wrapper.__init__(self, env)
-
+        self.fps = fps
         if episode_trigger is None and step_trigger is None:
             episode_trigger = capped_cubic_video_schedule
 
@@ -150,11 +151,13 @@ class InfoRecordVideo(gym.Wrapper, gym.utils.RecordConstructorArgs):
         video_name = f"{self.name_prefix}-step-{self.step_id}"
         if self.episode_trigger:
             video_name = f"{self.name_prefix}-episode-{self.episode_id}"
-
+            
         if self.video_name is not None:
             video_name = self.video_name
             if "STEP_NUM" in video_name:
                 video_name = video_name.replace("STEP_NUM", f"{self.step_id}")
+
+
 
         #print(self.video_folder, "\n", video_name)
         base_path = os.path.join(self.video_folder, video_name)
@@ -236,7 +239,7 @@ class InfoRecordVideo(gym.Wrapper, gym.utils.RecordConstructorArgs):
             torchvision.io.write_video(
                 self.video_path_full, 
                 self.frames[:self.recorded_frames,:,:,:].cpu(), 
-                fps=10
+                fps=self.fps
             )
         self.recording = False
         self.recorded_frames = 0

@@ -39,13 +39,15 @@ agent:
   experiment:
     directory: "FPiH_franka"
     experiment_name: "default_BroNet_franka"
-    write_interval: 150
+    write_interval: 75
     checkpoint_interval: 3000
 
-videos:
+video_tracking:
+  # note to use this must run with --video --enable_cameras
   record_training: True
-  training_interval: 925
-  record_eval: True
+  train_video_interval: 925
+  record_evals: True
+  video_length: 75
 
 
 defaults:

@@ -13,10 +13,10 @@ parser.add_argument("--max_steps", type=int, default=10240000, help="RL Policy t
 parser.add_argument("--force_encoding", type=str, default=None, help="Which type of force encoding to use if force is included")
 
 # video
-parser.add_argument("--eval_videos", action="store_true", default=False, help="Record videos of evaluations")
-parser.add_argument("--train_videos", action="store_true", default=False, help="Record videos of training at fixed interval")
+parser.add_argument("--record_evals", action="store_true", default=False, help="Record videos of evaluations")
+parser.add_argument("--record_training", action="store_true", default=False, help="Record videos of training at fixed interval")
 parser.add_argument("--train_video_interval", type=int, default=1000, help="Interval between video recordings (in steps).")
-parser.add_argument("--train_video_length", type=int, default=75, help="Length of the recorded video (in steps).")
+parser.add_argument("--video_length", type=int, default=75, help="Length of the recorded video (in steps).")
 
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")
@@ -34,6 +34,7 @@ parser.add_argument("--learning_lambda", type=float, default=None)
 parser.add_argument("--learning_rate", type=float, default=None)
 
 # wandb
+parser.add_argument("--no_log_wandb", action="store_false", default=True, help="Disables the wandb logger")
 parser.add_argument("--wandb_entity", type=str, default="hur", help="Name of wandb entity")
 parser.add_argument("--wandb_project", type=str, default="Tester", help="Name of wandb project")
 parser.add_argument("--wandb_api_key", type=str, default="-1", help="API key for WandB")
@@ -44,7 +45,7 @@ AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli, hydra_args = parser.parse_known_args()
 
-if args_cli.train_videos or args_cli.eval_videos:   
+if args_cli.record_training or args_cli.record_evals:   
     args_cli.video = True
     args_cli.enable_cameras = True
 
@@ -196,8 +197,20 @@ def main(
         dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
 
 
+
     # determine video kwargs
-    vid = args_cli.eval_videos or args_cli.train_videos
+    vid = args_cli.record_evals or args_cli.record_training
+    vid_interval = args_cli.train_video_interval
+    vid_len = args_cli.video_length
+    eval_vid = args_cli.record_evals
+    train_vid = args_cli.record_training
+    if "video_tracking" in agent_cfg.keys() and not vid:
+        # only use cfg file if no parameters given and parameters in cfg
+        vid = True
+        cfg = agent_cfg['video_tracking']
+        vid_interval = cfg['train_video_interval']
+        vid_len = cfg['video_length']
+        eval_vid = cfg['record_evals']
         
     # create env
     env = gym.make(
@@ -205,6 +218,12 @@ def main(
         cfg=env_cfg, 
         render_mode="rgb_array" if vid else None
     )
+    vid_fps = int(1.0 / (env.cfg.sim.dt * env.cfg.sim.render_interval ))
+
+    print(f"\n*******Video Kwargs*******:\n\tvid:{vid}\n\tinterval:{vid_interval}")
+    print(f"\teval:{eval_vid}\n\ttrain:{train_vid}\n\tlength:{vid_len}")
+    print(f"\tFPS:{vid_fps}")
+    print("***************************")
 
     #env = PrintActivity(env)
     
@@ -214,18 +233,19 @@ def main(
         def check_record(step):
             global evaluating
             if not evaluating:
-                return step % args_cli.train_video_interval == 0
+                return step % vid_interval == 0
             return evaluating
         
         video_kwargs = {
             "video_folder": os.path.join(log_dir, "videos"),
             "step_trigger": check_record, 
-            "video_length": args_cli.train_video_length,
+            "video_length": vid_len,
             "disable_logger": True,
+            "fps": vid_fps
         }
-        if args_cli.eval_videos:
+        if eval_vid:
             os.makedirs(os.path.join(log_dir, "videos/evals"))
-        if args_cli.train_videos:
+        if train_vid:
             os.makedirs(os.path.join(log_dir, "videos/training"))
 
         print("[INFO] Recording videos during training.")
@@ -272,7 +292,7 @@ def main(
     models["value"] = models["policy"]  # same instance: shared model
     
     # set wandb parameters
-    agent_cfg['agent']['experiment']['wandb'] = True #TODO
+    agent_cfg['agent']['experiment']['wandb'] = args_cli.no_log_wandb
     wandb_kwargs = {
         "project":args_cli.wandb_project,
         "entity":args_cli.wandb_entity,
@@ -307,26 +327,29 @@ def main(
         env = env,
         agents = agent
     )
-    env.recording = True
+
+    env.recording = vid # True
     # our actual learning loop
     ckpt_int = agent_cfg["agent"]["experiment"]["checkpoint_interval"]
     num_evals = args_cli.max_steps // (ckpt_int * args_cli.num_envs)
     evaluating = True
-    if args_cli.eval_videos:   
+    if eval_vid:   
         vid_env.set_video_name(f"evals/eval_0")
+    
     trainer.eval(0, vid_env)
     
     for i in range(num_evals):
         print(f"Beginning epoch {i+1}/{num_evals}")
         print("Training")
         evaluating = False
-        if args_cli.train_videos:     
+        if train_vid:     
             vid_env.set_video_name(f"training/train_STEP_NUM")
         trainer.train(ckpt_int, vid_env)
         
         evaluating = True
-        if args_cli.eval_videos:
+        if eval_vid:
             vid_env.set_video_name(f"evals/eval_{i+1}")
+
         print("Evaluating")
         trainer.eval(ckpt_int*(i+1), vid_env)
 
@@ -334,8 +357,6 @@ def main(
 
 if __name__ == "__main__":
     # run the main function
-    print("pre main")
     main()
-    print("post main")
     # close sim app
     simulation_app.close()

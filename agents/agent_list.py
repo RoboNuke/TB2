@@ -44,6 +44,8 @@ class AgentList():
                 agent.write_tracking_data(timestep, timesteps, eval)
         else:
             self.agents.write_tracking_data(timestep, timesteps, eval)
+
+        self.reset_tracking()
             
     def act(self,
         states: torch.Tensor,
