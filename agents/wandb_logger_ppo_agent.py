@@ -342,7 +342,7 @@ class WandbLoggerPPO(PPO):
                         if 'Reward' in k:
                             rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
                             if eval_mode:
-                                self.m4_returns[k] = (rew * alive_mask)
+                                self.m4_returns[k][alive_mask] = rew[alive_mask]#(rew * alive_mask)
                             else:
                                 self.m4_returns[k] = rew
                         else:
@@ -383,27 +383,26 @@ class WandbLoggerPPO(PPO):
                 )
             for k, v in self.m4_returns.items():
                 #print(k, "\t", v[0].item())
-                if 'Force' in k or "Torque" in k:
-                    continue
-                elif 'Episode_Reward/' in k:
-                    # in log IsaacLab returns the sum of each reward type, to get avg 
-                    # reward we have to subtract the previous return
-                    idx = k.index("/") + 1 
-                    my_k = prefix + k[:idx]
-                    my_k = my_k.replace('Episode_Reward/', " Reward /")
-                    
-                    step_vals = v.clone() - self.old_rewards[k]
-                    #if 'baseline' in k:
-                    #    print(step_vals[0].item(), v[0].item(), self.old_rewards[k][0].item())
-                    #if "dist_to_goal" in k[idx:]:
-                    #    print(step_vals[0], v[0], self.old_rewards[k][0])
-                    self.track_data(f'{my_k + " Step " + k[idx:]} (mean)', torch.mean(step_vals).item())
-                    self.track_data(f'{my_k + " Step " + k[idx:]} (max)', torch.max(step_vals).item())
-                    self.track_data(f'{my_k + " Step " + k[idx:]} (min)', torch.min(step_vals).item())
-
-                    self.old_rewards[k] = v.clone()
-
-                else:
+                #if 'Force' in k or "Torque" in k:
+                #    continue
+                #elif 'Episode_Reward/' in k:
+                #    # in log IsaacLab returns the sum of each reward type, to get avg 
+                #    # reward we have to subtract the previous return
+                #    idx = k.index("/") + 1 
+                #    my_k = prefix + k[:idx]
+                #    my_k = my_k.replace('Episode_Reward/', " Reward /")
+                #    
+                #    step_vals = v.clone() - self.old_rewards[k]
+                #    #if 'baseline' in k:
+                #    #    print(step_vals[0].item(), v[0].item(), self.old_rewards[k][0].item())
+                3    #if "dist_to_goal" in k[idx:]:
+                #    #    print(step_vals[0], v[0], self.old_rewards[k][0])
+                #    self.track_data(f'{my_k + " Step " + k[idx:]} (mean)', torch.mean(step_vals).item())
+                #    self.track_data(f'{my_k + " Step " + k[idx:]} (max)', torch.max(step_vals).item())
+                #    self.track_data(f'{my_k + " Step " + k[idx:]} (min)', torch.min(step_vals).item())
+                #    self.old_rewards[k] = v.clone()
+                #else:
+                if 'Force' not in k and 'Torque' not in k:
                     idx = k.index("/") + 1 
                     my_k = prefix + k[:idx]
                     my_k = my_k.replace('Episode_Reward/', " Reward /")
