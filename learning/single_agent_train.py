@@ -211,6 +211,7 @@ def main(
         vid_interval = cfg['train_video_interval']
         vid_len = cfg['video_length']
         eval_vid = cfg['record_evals']
+        train_vid = cfg['record_training']
         
     # create env
     env = gym.make(
