@@ -1,12 +1,19 @@
 from math import exp
 import matplotlib.pyplot as plt
-#import numpy as np
+import numpy as np
 from wrappers.DMP.rbf import RBF
 from wrappers.DMP.cs import CS
 import torch
 
 class DiscreteDMP():
-    def __init__(self, nRBF=100, betaY=1, dt= 0.001, cs=CS(1.0, 0.001), num_envs=1, device="cpu"):
+    def __init__(self, 
+                 nRBF:int=100, 
+                 betaY: float=1, 
+                 dt: float= 0.001, 
+                 cs: CS=CS(1.0, 0.001), 
+                 num_envs: int=1, 
+                 device: str="cpu"
+        ):
         self.nRBF = nRBF
         self.ay = 4 * betaY
         self.by = betaY
@@ -15,9 +22,9 @@ class DiscreteDMP():
         self.num_envs = num_envs
         self.device = device
 
-        self.ws = ws
-        if self.ws == None:
-            self.ws = torch.ones((self.num_envs, self.nRBF), device = self.device) #[1.0 for x in range(self.nRBF)]
+        self.ws = torch.ones((self.num_envs, self.nRBF), device = self.device) #[1.0 for x in range(self.nRBF)]
+
+        self.rbfs = RBF(can_sys=self.cs, num_rbfs=self.nRBF)
 
         self.ddy = 0
         self.dy = 0
@@ -25,48 +32,30 @@ class DiscreteDMP():
         self.goal = None
         self.y0 = None
 
-    def centerRBFs(self):
-        self.rbf_centers = torch.linspace((self.nRBF), device = self.device)
-        self.rbf_std_dev = torch.linspace((self.nRBF), device = self.device) 
-        des_c = torch.linspace(0, 1.0, self.nRBF)
-        for i in range(self.nRBF):
-            self.rbf_centers[i] = torch.exp(-self.cs.ax * des_c[i])
-            #c = des_c[i]
-            self.rbf_std_dev[i] = (self.nRBF) / (self.rbf_centers[i] ** 2)
-            #h = self.nRBF ** 1.5 / c / self.cs.ax
-            
-            #c = np.exp(-self.cs.ax * (i - 1)/(self.nRBF - 1))
-
-    """
-    def centerRBFsV2(self):
-        self.RBFs = []
-        c = [np.exp(-self.cs.ax * i/self.nRBF) for i in range(self.nRBF)]
-        h = [1 / ((c[i+1] - c[i])**2) for i in range(self.nRBF-1)]
-        h.append(h[-1])
-        #print(c)
-        #print(h)
-        for i in range(self.nRBF):
-            self.RBFs.append(RBF(c[i],h[i]))
-    """
-
     def learnWeights(self,y): #, ydot, ydotdot, tt):
         self.goal = y[-1]
-        x = np.array(self.cs.rollout())
+        x = self.cs.rollout()
         #dt = t / t[-1]
-        path = np.zeros(len(x))
-        ts = np.zeros(len(x))
-        t=np.linspace(0, self.cs.run_time, len(y))
+        path = torch.zeros((len(x)), device=self.device)
+        ts = torch.zeros(len(x), device=self.device)
+        t=torch.linspace(0, 1.0, len(y))
+        
+        
+        # TODO Torch Interpolate
         import scipy.interpolate
         path_gen = scipy.interpolate.interp1d(t, y)
         for i in range(len(x)):
-            path[i] = path_gen(i * self.cs.dt)
+            path[i] = float(path_gen(i * self.cs.dt))
             ts[i] = i * self.dt
 
-        
         # estimate the gradients
         #ddt = self.dt * t[-1]
+        # TODO Torch gradients
         dy = np.gradient(path)/(self.dt)
         ddy = np.gradient(dy)/(self.dt)
+
+        dy = torch.from_numpy(dy)
+        ddy = torch.from_numpy(ddy)
         """
         print(min(tt), max(tt), min(ts), max(ts))
         plt.plot(ts, path, '-r')
@@ -80,47 +69,48 @@ class DiscreteDMP():
         plt.show()
         """
         y = path
-        rbMats = [self.RBFs[i].theeMat(x) for i in range(self.nRBF)]
+        self.y0 = y[0]
+        #x = x.unsqueeze(1)
+        # rbMats = (len(x), num_rbfs)
+        rbMats = self.rbfs.eval(x) #[self.RBFs[i].theeMat(x) for i in range(self.nRBF)]
 
         fd = ddy - self.ay * (self.by * (self.goal - y) - dy)
         
-        for i in range(len(self.ws)):
-            bot = np.sum( x ** 2 * rbMats[i])
-            #bot = np.sum(x * rbMats[i])
-            top = np.sum( x * rbMats[i] * fd)
-            #print(bot)
-            self.ws[i] = top / bot
-        #print(g - y[0])
-        if abs(self.goal - y[0]) > 0.0001:
-            for i in range(self.nRBF):
-                self.ws[i]/= (self.goal-y[0])
+        s = x #* (self.goal - self.y0)
+        top = torch.sum(s[:,None] * rbMats * fd[:,None], dim=0)
+        bot = torch.sum( s[:,None] * rbMats * s[:,None], dim=0)
 
-    def calcWPsi(self, x):
-        top = 0
-        bot = 0
-        for i in range(len(self.ws)):
-            thee = self.RBFs[i].eval(x)
-            top += thee * self.ws[i] 
-            bot += thee
-        if bot > 1e-6:
-            return top/bot
-        else:
-            return top
+        self.ws = top / bot
+
+        if abs(self.goal  - y[0]) > 0.0001:
+            self.ws /= (self.goal - y[0])
+            
+
+    def calcWPsi(self, x: float):
+        thee = self.rbfs.eval(x) 
+        top =  torch.sum(thee * self.ws[None,:], dim=1)
+        bot = torch.sum(thee, dim=1)
+        
+
+        bot[bot <= 1e-6] = 1.0
+        return top / bot
     
     def step(self, tau=1.0, error=0.0, external_force=None):
         ec = 1.0 / (1.0+error)
 
         x = self.cs.step(tau=tau, error_coupling = ec)
-
+        
         F = self.calcWPsi(x) * (self.goal - self.y0) * x
 
         self.ddy = self.ay * (self.by * (self.goal - self.y) - self.dy) + F
 
         if external_force != None:
-            ddy += external_force
+            self.ddy += external_force
         
         self.dy += self.ddy * self.dt * ec / tau
         self.y += self.dy * self.dt * ec / tau
+
+        #print(self.y.size(), self.dy.size(), self.ddy.size())
 
         return self.y, self.dy, self.ddy
 
@@ -147,9 +137,9 @@ class DiscreteDMP():
 
             self.step(tau=tau, error=0.0, external_force=None)
 
-            z.append(self.y)
-            dz.append(self.dy)
-            ddz.append(self.ddy)
+            z.append(self.y.item())
+            dz.append(self.dy.item())
+            ddz.append(self.ddy.item())
             ts.append(t)
 
         z = np.array(z)
@@ -171,7 +161,7 @@ if __name__=="__main__":
     dt = 0.001
     tmax = 5
 
-    dmp = DiscreteDMP(nRBF=75, betaY=25.0/4.0, dt=dt, cs=CS(1.0, dt))
+    dmp = DiscreteDMP(nRBF=100, betaY=25.0/4.0, dt=dt, cs=CS(ax=10.0, dt=dt))
 
     t = np.arange(0, tmax, dt)
     of = 0.5
