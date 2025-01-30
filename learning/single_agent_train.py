@@ -73,8 +73,10 @@ from skrl.resources.preprocessors.torch import RunningStandardScaler
 
 from learning.ext_sequential_trainer import ExtSequentialTrainer, EXT_SEQUENTIAL_TRAINER_DEFAULT_CONFIG
 from wrappers.smoothness_obs_wrapper import SmoothnessObservationWrapper
+from wrappers.close_gripper_action_wrapper import GripperCloseEnv
 from models.default_mixin import Shared
 from models.bro_model import BroAgent
+
 
 from omni.isaac.lab.envs import (
     DirectMARLEnv,
@@ -258,9 +260,8 @@ def main(
         vid_env = None
 
     if args_cli.log_smoothness_metrics:
-        print("[INFO] Recording Smoothness Metrics in info.")
+        print("\n\n[INFO] Recording Smoothness Metrics in info.\n\n")
         env = SmoothnessObservationWrapper(env)
-
 
     # wrap around environment for skrl
     env = SkrlVecEnvWrapper(
@@ -268,6 +269,10 @@ def main(
         ml_framework="torch"
     )  # same as: `wrap_env(env, wrapper="auto")
 
+    #print("post:post:", env.action_space)
+    #print("pre:", env.action_space)
+    env = GripperCloseEnv(env)
+    #print("post:", env.action_space)
     device = env.device
 
     memory = RandomMemory(
@@ -284,6 +289,7 @@ def main(
         observation_space=env.observation_space, 
         action_space=env.action_space,
         device=device,
+        act_init_std = agent_cfg['models']['act_init_std'],
         force_type = args_cli.force_encoding,
         critic_n = agent_cfg['models']['critic']['n'],
         critic_latent = agent_cfg['models']['critic']['latent_size'],

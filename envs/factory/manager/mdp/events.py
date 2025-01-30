@@ -33,7 +33,7 @@ from omni.isaac.robot_assembler import RobotAssembler,AssembledRobot
 import numpy as np
 
 from envs.factory.manager.factory_manager_task_cfg import PegInsert, FactoryTask
-
+import envs.factory.direct.factory_control as fc
 import omni.isaac.core.utils.torch as torch_utils
 from omni.isaac.lab.utils.math import axis_angle_from_quat
 
@@ -82,7 +82,7 @@ def set_default_dynamics_parameters(
     set_friction(env, fixed, env.cfg_task.fixed_asset_cfg.friction)
     set_friction(env, robot, env.cfg_task.robot_cfg.friction) 
 
-    compute_keypoint_value(env, dt=env.physics_dt)
+    compute_keypoint_value(env)#, dt=env.physics_dt)
 
 def init_tensors(
         env: ManagerBasedEnv,
@@ -158,11 +158,23 @@ def init_tensors(
     #env.ep_success_times = torch.zeros((env.num_envs,), dtype=torch.long, device=env.device)
     robot: Articulation = env.scene['robot']
     env.fingertip_body_idx = robot.body_names.index("panda_fingertip_centered")
+    env.left_finger_body_idx = robot.body_names.index("panda_leftfinger")
+    env.right_finger_body_idx = robot.body_names.index("panda_rightfinger")
+
+
+    env.fingertip_midpoint_pos = torch.zeros((env.num_envs, 3), device=env.device)
+    env.prev_fingertip_pos = torch.zeros((env.num_envs, 3), device=env.device)
+    env.fingertip_midpoint_quat = env.identity_quat.clone()
+    env.prev_fingertip_quat = env.identity_quat.clone()
+    env.time_keypoint_update = 0.0
+
 
 def reset_held_asset(
     env: ManagerBasedRLEnv,
     env_ids: torch.Tensor
 ):
+
+    physics_sim_view = sim_utils.SimulationContext.instance().physics_sim_view
     held_asset: Articulation = env.scene["held_asset"]
     robot: Articulation = env.scene['robot']
     env.fingertip_body_idx = robot.body_names.index("panda_fingertip_centered")
@@ -191,7 +203,7 @@ def reset_held_asset(
     )
 
     # Add asset in hand randomization
-    rand_sample = torch.rand((env.num_envs, 3), dtype=torch.float32, device=env.device)*0.0
+    rand_sample = torch.rand((env.num_envs, 3), dtype=torch.float32, device=env.device) * 0.0
     env.held_asset_pos_noise = 2 * (rand_sample - 0.5)  # [-1, 1]
     if env.cfg_task.name == "gear_mesh":
         env.held_asset_pos_noise[:, 2] = -rand_sample[:, 2]  # [-1, 0]
@@ -213,6 +225,164 @@ def reset_held_asset(
     held_asset.write_root_com_velocity_to_sim(held_state[:, 7:])
     held_asset.reset()
     step_sim_no_action(env)
+
+    grasp_time = 0.0
+    ctrl_target_joint_pos = robot.data.joint_pos.clone()
+    ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
+    while grasp_time < 0.25:
+        robot.set_joint_position_target(ctrl_target_joint_pos)
+        step_sim_no_action(env)
+        grasp_time += env.sim.get_physics_dt()
+
+    physics_sim_view.set_gravity(carb.Float3(*env.cfg.sim.gravity))
+    
+    # Zero initial velocity.
+    env.ee_angvel_fd[:, :] = 0.0
+    env.ee_linvel_fd[:, :] = 0.0
+
+
+
+def reset_franka_above_fixed(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor
+):
+    compute_keypoint_value(env)#, dt=env.physics_dt)
+    fixed_tip_pos_local = torch.zeros_like(env.fixed_pos)
+    fixed_tip_pos_local[:, 2] += env.cfg_task.fixed_asset_cfg.height
+    fixed_tip_pos_local[:, 2] += env.cfg_task.fixed_asset_cfg.base_height
+
+    _, fixed_tip_pos = torch_utils.tf_combine(
+        env.fixed_quat, env.fixed_pos, env.identity_quat, fixed_tip_pos_local
+    )
+
+    bad_envs = env_ids.clone()
+    ik_attempt = 0
+
+    hand_down_quat = torch.zeros((env.num_envs, 4), dtype=torch.float32, device=env.device)
+    env.hand_down_euler = torch.zeros((env.num_envs, 3), dtype=torch.float32, device=env.device)
+
+    robot: Articulation = env.scene['robot']
+    env.fingertip_body_idx = robot.body_names.index("panda_fingertip_centered")
+    
+    goal_fingertip_midpoint_pos = (
+        robot.data.body_link_pos_w[:, env.fingertip_body_idx] - env.scene.env_origins
+    )
+    goal_fingertip_midpoint_quat = robot.data.body_link_quat_w[:, env.fingertip_body_idx]
+
+    while True:
+        n_bad = bad_envs.shape[0]
+
+        above_fixed_pos = fixed_tip_pos.clone()
+        above_fixed_pos[:, 2] += env.cfg_task.hand_init_pos[2]
+
+        rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=env.device)
+        above_fixed_pos_rand = 2 * (rand_sample - 0.5)  # [-1, 1]
+        hand_init_pos_rand = torch.tensor(env.cfg_task.hand_init_pos_noise, device=env.device)
+        above_fixed_pos_rand = above_fixed_pos_rand @ torch.diag(hand_init_pos_rand)
+        above_fixed_pos[bad_envs] += above_fixed_pos_rand
+
+        # (b) get random orientation facing down
+        hand_down_euler = (
+            torch.tensor(env.cfg_task.hand_init_orn, device=env.device).unsqueeze(0).repeat(n_bad, 1)
+        )
+
+        rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=env.device)
+        above_fixed_orn_noise = 2 * (rand_sample - 0.5)  # [-1, 1]
+        hand_init_orn_rand = torch.tensor(env.cfg_task.hand_init_orn_noise, device=env.device)
+        above_fixed_orn_noise = above_fixed_orn_noise @ torch.diag(hand_init_orn_rand)
+        hand_down_euler += above_fixed_orn_noise
+        env.hand_down_euler[bad_envs, ...] = hand_down_euler
+        hand_down_quat[bad_envs, :] = torch_utils.quat_from_euler_xyz(
+            roll=hand_down_euler[:, 0], pitch=hand_down_euler[:, 1], yaw=hand_down_euler[:, 2]
+        )
+
+        # (c) iterative IK Method
+        goal_fingertip_midpoint_pos[bad_envs, ...] = above_fixed_pos[bad_envs, ...]
+        goal_fingertip_midpoint_quat[bad_envs, ...] = hand_down_quat[bad_envs, :]
+
+        pos_error, aa_error = set_pos_inverse_kinematics(
+            env=env,
+            env_ids=bad_envs, 
+            ctrl_target_fingertip_midpoint_pos=goal_fingertip_midpoint_pos, 
+            ctrl_target_fingertip_midpoint_quat=goal_fingertip_midpoint_quat
+        )
+        pos_error = torch.linalg.norm(pos_error, dim=1) > 1e-3
+        angle_error = torch.norm(aa_error, dim=1) > 1e-3
+        any_error = torch.logical_or(pos_error, angle_error)
+        bad_envs = bad_envs[any_error.nonzero(as_tuple=False).squeeze(-1)]
+
+        # Check IK succeeded for all envs, otherwise try again for those envs
+        if bad_envs.shape[0] == 0:
+            break
+
+        set_franka_to_default_pose(
+            env, 
+            joints=[0.00871, -0.10368, -0.00794, -1.49139, -0.00083, 1.38774, 0.0], 
+            env_ids=bad_envs
+        )
+
+        ik_attempt += 1
+        print(f"IK Attempt: {ik_attempt}\tBad Envs: {bad_envs.shape[0]}")
+
+    step_sim_no_action(env)
+
+
+def set_pos_inverse_kinematics(
+        env, env_ids, 
+        ctrl_target_fingertip_midpoint_pos,
+        ctrl_target_fingertip_midpoint_quat
+):
+    """Set robot joint position using DLS IK."""
+    ik_time = 0.0
+    robot: Articulation = env.scene['robot']
+    env.fingertip_body_idx = robot.body_names.index("panda_fingertip_centered")
+    ctrl_target_joint_pos = torch.zeros_like(robot.data.joint_pos)
+    while ik_time < 0.25:
+        fingertip_midpoint_pos = (
+            robot.data.body_link_pos_w[:, env.fingertip_body_idx] - env.scene.env_origins
+        )
+        fingertip_midpoint_quat = robot.data.body_link_quat_w[:, env.fingertip_body_idx]
+        # Compute error to target.
+        pos_error, axis_angle_error = fc.get_pose_error(
+            fingertip_midpoint_pos=fingertip_midpoint_pos[env_ids],
+            fingertip_midpoint_quat=fingertip_midpoint_quat[env_ids],
+            ctrl_target_fingertip_midpoint_pos=ctrl_target_fingertip_midpoint_pos[env_ids],
+            ctrl_target_fingertip_midpoint_quat=ctrl_target_fingertip_midpoint_quat[env_ids],
+            jacobian_type="geometric",
+            rot_error_type="axis_angle",
+        )
+
+        delta_hand_pose = torch.cat((pos_error, axis_angle_error), dim=-1)
+
+        # Solve DLS problem.
+        jacobians = robot.root_physx_view.get_jacobians()
+        left_finger_jacobian = jacobians[:, env.left_finger_body_idx - 1, 0:6, 0:7]
+        right_finger_jacobian = jacobians[:, env.right_finger_body_idx - 1, 0:6, 0:7]
+        fingertip_midpoint_jacobian = (left_finger_jacobian + right_finger_jacobian) * 0.5
+
+
+        delta_dof_pos = fc._get_delta_dof_pos(
+            delta_pose=delta_hand_pose,
+            ik_method="dls",
+            jacobian=fingertip_midpoint_jacobian[env_ids],
+            device=env.device,
+        )
+        joint_pos = robot.data.joint_pos.clone()
+        joint_vel = robot.data.joint_vel.clone()
+        joint_pos[env_ids, 0:7] += delta_dof_pos[:, 0:7]
+        joint_vel[env_ids, :] = torch.zeros_like(joint_pos[env_ids,])
+
+        ctrl_target_joint_pos[env_ids, 0:7] = joint_pos[env_ids, 0:7]
+        # Update dof state.
+        robot.write_joint_state_to_sim(joint_pos, joint_vel)
+        robot.set_joint_position_target(ctrl_target_joint_pos)
+
+        # Simulate and update tensors.
+        step_sim_no_action(env)
+        ik_time += env.physics_dt
+
+    return pos_error, axis_angle_error
+
 
 def reset_fixed_asset(
     env: ManagerBasedEnv,
@@ -263,6 +433,8 @@ def set_assets_to_default_pose(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor
 ):
+    physics_sim_view = sim_utils.SimulationContext.instance().physics_sim_view
+    physics_sim_view.set_gravity(carb.Float3(0.0, 0.0, 0.0))
     held_asset: Articulation = env.scene["held_asset"]
     fixed_asset: Articulation = env.scene["fixed_asset"]
     held_state = held_asset.data.default_root_state.clone()[env_ids]
@@ -305,7 +477,7 @@ def step_sim_no_action(env):
     env.scene.write_data_to_sim()
     env.sim.step(render=False)
     env.scene.update(dt=env.physics_dt)
-    compute_keypoint_value(env, dt=env.physics_dt)
+    compute_keypoint_value(env)#, dt=env.physics_dt)
 
 def get_handheld_asset_relative_pose(env):
     """Get default relative pose between help asset and fingertip."""
@@ -338,17 +510,23 @@ def get_handheld_asset_relative_pose(env):
     return held_asset_relative_pos, held_asset_relative_quat
 
 def compute_keypoint_value(
-        env: ManagerBasedRLEnv,
-        dt: float
+        env: ManagerBasedRLEnv
 ):
     # ensure we don't repeat this calculation
     now = env.sim._current_time
+    try:
+        dt = now - env.time_keypoint_update
+    except AttributeError:
+        env.time_keypoint_update = now
+        dt = 0.0
+        return
     #print((now - env.time_keypoint_update), env.sim.cfg.dt * (env.cfg.decimation-1))
-    if (now - env.time_keypoint_update) < env.sim.cfg.dt * (env.cfg.decimation-1):#todo decimation
+    if dt < env.sim.cfg.dt * (env.cfg.decimation-1):
         return
     #print("Calculating")
     env.time_keypoint_update = now
     
+    robot: Articulation = env.scene["robot"]
     held_asset: Articulation = env.scene["held_asset"]
     fixed_asset: Articulation = env.scene['fixed_asset']
 
@@ -357,6 +535,27 @@ def compute_keypoint_value(
 
     env.fixed_pos = fixed_asset.data.root_link_pos_w - env.scene.env_origins
     env.fixed_quat = fixed_asset.data.root_link_quat_w
+
+
+    env.fingertip_midpoint_pos = (
+        robot.data.body_link_pos_w[:, env.fingertip_body_idx] - env.scene.env_origins
+    )
+    env.fingertip_midpoint_quat = robot.data.body_link_quat_w[:, env.fingertip_body_idx]
+    env.fingertip_midpoint_linvel = robot.data.body_com_lin_vel_w[:, env.fingertip_body_idx]
+    env.fingertip_midpoint_angvel = robot.data.body_com_ang_vel_w[:, env.fingertip_body_idx]
+    
+    # Finite-differencing results in more reliable velocity estimates.
+    env.ee_linvel_fd = (env.fingertip_midpoint_pos - env.prev_fingertip_pos) / dt
+    env.prev_fingertip_pos = env.fingertip_midpoint_pos.clone()
+    
+    # Add state differences if velocity isn't being added.
+    rot_diff_quat = torch_utils.quat_mul(
+        env.fingertip_midpoint_quat, torch_utils.quat_conjugate(env.prev_fingertip_quat)
+    )
+    rot_diff_quat *= torch.sign(rot_diff_quat[:, 0]).unsqueeze(-1)
+    rot_diff_aa = axis_angle_from_quat(rot_diff_quat)
+    env.ee_angvel_fd = rot_diff_aa / dt
+    env.prev_fingertip_quat = env.fingertip_midpoint_quat.clone()
 
     # update keypoint location
     env.held_base_quat[:], env.held_base_pos[:] = torch_utils.tf_combine(
@@ -382,7 +581,48 @@ def compute_keypoint_value(
         )[1]
 
     env.keypoint_dist = torch.norm(env.keypoints_held - env.keypoints_fixed, p=2, dim=-1).mean(-1)
+
+
+    num_keypoints = env.cfg_task.num_keypoints
+    fixed_cfg = env.cfg_task.fixed_asset_cfg
+    if env.cfg_task.name == "peg_insert" or env.cfg_task.name == "gear_mesh":
+        height_threshold = fixed_cfg.height * 0.95
+    elif env.cfg_task.name == "nut_thread":
+        height_threshold = fixed_cfg.thread_pitch * 0.95
+    else:
+        raise NotImplementedError("Task not implemented")
+    
+    # check outside hole range
+    env.xy_dist = torch.linalg.vector_norm(env.target_held_base_pos[:, 0:2] - env.held_base_pos[:, 0:2], dim=1)
+    env.is_centered = torch.where(
+        env.xy_dist < 0.0025, 
+        torch.ones((env.num_envs,), dtype=torch.bool, device=env.device), 
+        torch.zeros((env.num_envs,), dtype=torch.bool, device=env.device)
+    )
+    env.z_disp = env.held_base_pos[:, 2] - env.target_held_base_pos[:, 2]
+
+    """
+    keypoint_xy_dist = torch.linalg.vector_norm( (env.keypoints_held - env.keypoints_fixed)[:,:,0:2], dim=2)
+    keypoint_centered = torch.where(
+        keypoint_xy_dist < 0.0025,
+        torch.ones((env.num_envs, num_keypoints), dtype=torch.bool, device=env.device),
+        torch.zeros((env.num_envs, num_keypoints), dtype=torch.bool, device=env.device),
+    )
+    adj_keypoint_delta = env.keypoints_held - env.keypoints_fixed
+    #print(adj_keypoint_delta.size())
+    #print((~keypoint_centered).size(), adj_keypoint_delta[:,:,2].size())
+
+    to_adj = torch.logical_and(
+        ~keypoint_centered, 
+        torch.abs(adj_keypoint_delta[:,:, 2]) < height_threshold
+    )
+    #print("idxs:", to_adj.size())
+    #print(adj_keypoint_delta[to_adj].size())
+    adj_keypoint_delta[to_adj][:, 2] = torch.sign(adj_keypoint_delta[to_adj][:, 2]) * height_threshold
+
+    env.adj_keypoint_dist = torch.norm(adj_keypoint_delta, p=2, dim=-1).mean(-1)
     #print("keypoint dist:", env.keypoint_dist)
+    """
 
 def init_ft_sensor(
     env: ManagerBasedEnv,

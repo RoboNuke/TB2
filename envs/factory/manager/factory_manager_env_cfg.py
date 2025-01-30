@@ -184,7 +184,7 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         ),
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
-            focal_length=24.0, focus_distance=400.0, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
+            focal_length=24.0, focus_distance=4.0, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
         ),
         width=240,
         height=180,
@@ -219,7 +219,7 @@ class ActionsCfg:
     gripper_action: mdp.BinaryJointPositionActionCfg = mdp.BinaryJointPositionActionCfg(
             asset_name="robot",
             joint_names=["panda_finger.*"],
-            open_command_expr={"panda_finger_.*": 0.00},
+            open_command_expr={"panda_finger_.*": 0.04},
             close_command_expr={"panda_finger_.*": 0.0},
         )
 
@@ -231,21 +231,51 @@ class ObservationsCfg:
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
 
-        joint_pos = ObsTerm(func = fac_mdp_obs.scaled_jnt_pos_rel) #func=mdp.joint_pos_rel)
-        joint_vel = ObsTerm(func = fac_mdp_obs.scaled_jnt_vel_rel) #mdp.joint_vel_rel)
+        #joint_pos = ObsTerm(func = fac_mdp_obs.scaled_jnt_pos_rel) #func=mdp.joint_pos_rel)
+        #joint_vel = ObsTerm(func = fac_mdp_obs.scaled_jnt_vel_rel) #mdp.joint_vel_rel)
         #object_position = ObsTerm(func=fpih_mdp_obs.object_position_in_robot_root_frame)
-        #force_torque = ObsTerm(func=fpih_mdp_obs.force_torque_sensor)
+        #force_torque = ObsTerm(func=fac_mdp_obs.force_torque_sensor)
 
         #target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose"})
-        #actions = ObsTerm(func=mdp.last_action)
 
-        peg_pose = ObsTerm(
-            func=fac_mdp_obs.held_asset_pose
+        #peg_pose = ObsTerm(
+        #    func=fac_mdp_obs.held_asset_pose
+        #)
+
+        fingertip_pose = ObsTerm(
+            func= fac_mdp_obs.fingertip_pos
         )
 
-        hole_pose = ObsTerm(
-            func=fac_mdp_obs.fixed_asset_pose
+        fingertip_pos_rel_fixed = ObsTerm(
+            func = fac_mdp_obs.held_fixed_relative_pos
         )
+
+        fingertip_quat = ObsTerm(
+            func = fac_mdp_obs.fingertip_quat
+        )
+
+        ee_linvel = ObsTerm(
+            func = fac_mdp_obs.ee_linvel
+        )
+
+        ee_angvel = ObsTerm(
+            func = fac_mdp_obs.ee_angvel
+        )
+
+        prev_action = ObsTerm(func=mdp.last_action)
+
+        #hole_pose = ObsTerm(
+        #    func=fac_mdp_obs.fixed_asset_pose
+        #)
+
+        """ What factory Uses by default        
+            #"fingertip_pos": self.fingertip_midpoint_pos,
+            #"fingertip_pos_rel_fixed": self.fingertip_midpoint_pos - noisy_fixed_pos,
+            #"fingertip_quat": self.fingertip_midpoint_quat,
+            #"ee_linvel": self.ee_linvel_fd,
+            #"ee_angvel": self.ee_angvel_fd,
+            #"prev_actions": prev_actions,
+        """
 
         def __post_init__(self):
             self.enable_corruption = False
@@ -323,7 +353,12 @@ class EventCfg:
         #},
     )
 
-    randomize_init_state = EventTerm(
+    randomize_franka_arm = EventTerm(
+        func = fac_mdp_events.reset_franka_above_fixed,
+        mode="reset"
+    )
+
+    randomize_held_asset = EventTerm(
         func=fac_mdp_events.reset_held_asset,
         mode="reset"
     )
@@ -377,6 +412,17 @@ class RewardsCfg:
         weight=1.0
     )
 
+    # factory includes these but seems to be zero reward
+    l2_action_penalty = RewTerm(
+        func=mdp.action_l2,
+        weight=0.0
+    )
+
+    l2_action_grad_penalty = RewTerm(
+        func=mdp.action_rate_l2,
+        weight=0.0
+    )
+
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
@@ -415,7 +461,7 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
     
     sim: SimulationCfg = SimulationCfg(
         device="cuda:0",
-        dt=1 / 120,
+        dt= 1 / 120,
         gravity=(0.0, 0.0, -9.81),
         physx=PhysxCfg(
             solver_type=1,
@@ -444,7 +490,7 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
             replicate_physics=self.replicate_physics
         )
         """Post initialization."""
-        self.decimation = 8
+        self.decimation = 12
         self.episode_length_s = 5.0
         self.sim.render_interval = self.decimation
 

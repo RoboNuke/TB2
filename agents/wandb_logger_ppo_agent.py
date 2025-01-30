@@ -197,11 +197,21 @@ class WandbLoggerPPO(PPO):
             # handle counting stats
 
             for k,v in self.count_stats.items():
-                idx = k.index("/") + 1 
                 my_k = prefix + k
-                my_k = my_k.replace('Episode_Termination/', ' Termination /')
-                #self.track_data(my_k, v.item())
-                self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
+                my_k = my_k.replace('Episode_Termination/', ' Termination / ')
+                if 'success' in k:
+                    my_k = prefix + ' Termination / success'
+                    self.data_manager.add_scalar({my_k:torch.sum(v).item()}, timestep * self.num_envs)
+                elif 'engaged' in k:
+                    my_k = prefix + ' Termination / engaged'
+                    self.data_manager.add_scalar({my_k:torch.sum(v).item()}, timestep * self.num_envs)
+                elif 'time_out' in k:
+                    #self.track_data(my_k, v.item())
+                    timedout = v.item() - torch.sum(self.count_stats['success']).item()
+                    self.data_manager.add_scalar({my_k:timedout}, timestep * self.num_envs)
+                else:
+                    #self.track_data(my_k, v.item())
+                    self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
                 self.count_stats[k] *= 0
 
         # reset data containers for next iteration
@@ -327,9 +337,12 @@ class WandbLoggerPPO(PPO):
                             self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
                         elif key.startswith("Episode_Reward"):
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
-                            self.old_rewards[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
                         else:
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
+
+                # add count stats for success and engagement
+                self.count_stats['success'] = torch.zeros(size=(states.shape[0],1), device=states.device)
+                self.count_stats['engaged'] = torch.zeros(size=(states.shape[0],1), device=states.device)
                             
             # this is a less efficent way to get the termination conditions, but isaac lab api has some issues
             # with not updating those buffers correctly so this is more accurate
@@ -339,6 +352,11 @@ class WandbLoggerPPO(PPO):
                     #print(f'\t\t{k}:{v}')
                     if k in self.m4_returns.keys():
                         rew = v
+                        if 'success' in k:
+                            self.count_stats['success'][v] = 1.0
+                        elif 'engaged' in k:
+                            self.count_stats['engaged'][v] = 1.0
+
                         if 'Reward' in k:
                             rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
                             if eval_mode:
@@ -352,7 +370,9 @@ class WandbLoggerPPO(PPO):
                                 self.m4_returns[k] += rew
                     else: # it is a count stats key 
                         key = k.split("/")[-1]
-                        if eval_mode:
+                        if 'success' in k or 'engaged' in k:
+                            pass
+                        elif eval_mode:
                             self.count_stats[k] += torch.sum( 
                                 torch.logical_and(
                                     alive_mask.T, 
@@ -361,7 +381,7 @@ class WandbLoggerPPO(PPO):
                             )
                         else:
                             self.count_stats[k] += torch.sum(env.unwrapped.termination_manager.get_term(key))
-
+                            
             # handle reward 
             prefix = "Training"
             if eval_mode:
@@ -403,9 +423,6 @@ class WandbLoggerPPO(PPO):
                 self._cumulative_rewards.add_(rewards)
                 self._cumulative_timesteps.add_(1)
                 mask_update = ~torch.logical_or(terminated, truncated)
-                for k,v in self.m4_returns.items():
-                    if "Reward" in k:
-                        self.old_rewards[k] *= mask_update
 
             
 
@@ -419,9 +436,6 @@ class WandbLoggerPPO(PPO):
                 self._cumulative_rewards[finished_episodes] = 0
                 self._cumulative_timesteps[finished_episodes] = 0
                 for k, v in self.m4_returns.items():
-                    v[finished_episodes] *= 0
-                
-                for k,v in self.old_rewards.items():
                     v[finished_episodes] *= 0
                 
         return alive_mask

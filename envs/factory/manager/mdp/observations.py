@@ -17,6 +17,53 @@ if TYPE_CHECKING:
 
 from envs.factory.manager.mdp.events import compute_keypoint_value
 
+
+def fingertip_pos(
+    env: ManagerBasedRLEnv
+):
+    try:
+        compute_keypoint_value(env)#, dt=env.physics_dt))
+        return env.fingertip_midpoint_pos
+    except AttributeError: # obs is called before init so data structures not in place
+        return torch.zeros((env.num_envs, 3), device=env.device)
+
+def fingertip_quat(
+    env: ManagerBasedRLEnv
+):
+    try:
+        compute_keypoint_value(env)#, dt=env.physics_dt))
+        return env.fingertip_midpoint_quat
+    except AttributeError: # obs is called before init so data structures not in place
+        return torch.tensor([1.0, 0.0, 0.0, 0.0], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
+
+def ee_linvel(
+    env: ManagerBasedRLEnv
+):
+    try:
+        compute_keypoint_value(env)#, dt=env.physics_dt))
+        return env.ee_linvel_fd
+    except AttributeError: # obs is called before init so data structures not in place
+        return torch.zeros((env.num_envs, 3), device=env.device)
+
+def ee_angvel(
+    env: ManagerBasedRLEnv
+):
+    try:
+        compute_keypoint_value(env)#, dt=env.physics_dt))
+        return env.ee_angvel_fd
+    except AttributeError: # obs is called before init so data structures not in place
+        return torch.zeros((env.num_envs, 3), device=env.device)
+
+def held_fixed_relative_pos(
+    env: ManagerBasedRLEnv
+):
+    try:
+        compute_keypoint_value(env)#, dt=env.physics_dt))
+        return env.fingertip_midpoint_pos - env.fixed_pos
+    except AttributeError:
+        return torch.zeros((env.num_envs, 3), device=env.device)
+
+
 def scaled_jnt_pos_rel(
         env: ManagerBasedRLEnv
 ):
@@ -33,7 +80,7 @@ def held_asset_pose(
         env: ManagerBasedRLEnv
 ):
     try:
-        compute_keypoint_value(env, dt=env.physics_dt)
+        compute_keypoint_value(env)#, dt=env.physics_dt))
         #print("Held pose", env.target_held_base_pos.device, env.target_held_base_quat.device)
         return torch.cat([env.target_held_base_pos, env.target_held_base_quat], dim=1)
     except:
@@ -43,19 +90,19 @@ def fixed_asset_pose(
         env: ManagerBasedRLEnv
 ):
     try:
-        compute_keypoint_value(env, dt=env.physics_dt)
+        compute_keypoint_value(env)#, dt=env.physics_dt))
         #print("Fixed Pose:", env.fixed_pos.device, env.fixed_quat.device)
         return torch.cat([env.fixed_pos, env.fixed_quat], dim=1)
     except:
         return torch.zeros(env.num_envs, 7)
 
 def force_torque_sensor(
-        env: ManagerBasedRLEnv,
-        frame: str = "panda_joint_1"
+        env: ManagerBasedRLEnv
 ):
     try:
-        return env.robot_av.get_measured_joint_forces()[:,8,:]
+        return torch.tanh( 0.0011 * env.robot_av.get_measured_joint_forces()[:,8,:] )
     except:
+        print("WARNING DO NOT HAVE FORCE TORQUE SENSING WORKING CORRECTLY")
         return torch.zeros((env.num_envs, 6), dtype=torch.float32, device=env.device)
 
 def peg_contact_sensor(

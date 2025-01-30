@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 
 from skrl.models.torch import DeterministicMixin, GaussianMixin, Model
-
+import math
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
@@ -183,6 +183,7 @@ class BroAgent(GaussianMixin, DeterministicMixin, Model):
             observation_space,
             action_space,
             device, 
+            act_init_std = 0.60653066, # -0.5 value used in maniskill
 
             force_type=None, 
             critic_n = 1, 
@@ -232,7 +233,7 @@ class BroAgent(GaussianMixin, DeterministicMixin, Model):
         layer_init(self.actor_mean.output[-2], std=0.01*np.sqrt(2)) 
  
         self.actor_logstd = nn.Parameter(
-            torch.ones(1, self.num_actions) * -0.5 
+            torch.ones(1, self.num_actions) * math.log(act_init_std)
         )
 
     def act(self, inputs, role):

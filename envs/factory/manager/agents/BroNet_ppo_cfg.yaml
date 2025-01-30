@@ -6,6 +6,7 @@ num_envs: 256
 # this is the parameters for the BroNet shared model
 models:
   force_encoding: None
+  act_init_std: 0.25 #0.60653066
   critic:
     n: 2
     latent_size: 512
@@ -15,12 +16,12 @@ models:
 
 agent:
   class: PPO
-  rollouts: 75
+  rollouts: 50 #75
   learning_epochs: 2
   mini_batches: 32 #500 # 128 steps / minibatch
   discount_factor: 0.99
   lambda: 0.99 #0.95
-  learning_rate: 1.0e-04
+  learning_rate: 1.0e-05 #1.0e-04
 
   # below are not args
   random_timesteps: 0
@@ -39,15 +40,15 @@ agent:
   experiment:
     directory: "FPiH_franka"
     experiment_name: "default_BroNet_franka"
-    write_interval: 75
-    checkpoint_interval: 3000
+    write_interval: 50 #75
+    checkpoint_interval: 2000
 
 video_tracking:
   # note to use this must run with --video --enable_cameras
   record_training: True
-  train_video_interval: 925
+  train_video_interval: 450
   record_evals: True
-  video_length: 75
+  video_length: 50
 
 
 defaults:
