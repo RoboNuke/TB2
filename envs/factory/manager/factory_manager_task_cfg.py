@@ -90,6 +90,7 @@ class Peg8mm(HeldAssetCfg):
     diameter = 0.007986
     height = 0.050
     mass = 0.019
+    #friction = 1.0
 
 
 @configclass

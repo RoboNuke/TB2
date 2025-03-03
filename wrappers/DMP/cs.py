@@ -17,6 +17,8 @@ class CS():
 
     def step(self, tau=1.0, error_coupling=1.0):
         self.x += (-self.ax * self.x * error_coupling) * self.dt / tau
+        if self.x < 0.0001:
+            self.x = 0.00005
         return self.x
 
     def rollout(self, tau=1.0):
@@ -27,6 +29,9 @@ class CS():
             self.xPath[t] = self.x
             self.step(tau=tau)
         return self.xPath
+
+    def get_xs(self, t):
+        return torch.exp(-self.ax * t)
     
 if __name__=="__main__":
     def plt_cs(cs, path, tau=1.0):

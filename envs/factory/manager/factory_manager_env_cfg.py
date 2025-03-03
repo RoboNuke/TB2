@@ -29,7 +29,7 @@ from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
 from omni.isaac.lab.envs import mdp
 from omni.isaac.lab.sensors import ContactSensorCfg
 from omni.isaac.core.articulations import ArticulationView
-from omni.isaac.lab.sensors import TiledCameraCfg
+from omni.isaac.lab.sensors import TiledCameraCfg, ImuCfg
 
 
 from omni.isaac.lab.actuators.actuator_cfg import ImplicitActuatorCfg
@@ -184,11 +184,18 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         ),
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
-            focal_length=24.0, focus_distance=4.0, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
+            focal_length=24.0, focus_distance=0.05, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
         ),
         width=240,
         height=180,
         debug_vis = True,
+    )
+
+    ee_trajectory: ImuCfg = ImuCfg(
+        prim_path="/World/envs/env_.*/Robot/panda_hand",
+        update_period = 1/200,
+        history_length = 20,
+        offset = ImuCfg.OffsetCfg(pos=[0.0, 0.0, 0.107])
     )
 
 ##
@@ -447,7 +454,7 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
         replicate_physics=False
     )"""
     num_envs = 2
-    replicate_physics = False
+    replicate_physics = True
     env_spacing = 2.5
     # Basic settings
     events: EventCfg = EventCfg()
@@ -461,7 +468,7 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
     
     sim: SimulationCfg = SimulationCfg(
         device="cuda:0",
-        dt= 1 / 120,
+        dt= 1 / 200,
         gravity=(0.0, 0.0, -9.81),
         physx=PhysxCfg(
             solver_type=1,
@@ -481,6 +488,12 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
     )
 
     def __post_init__(self):
+        """Post initialization."""
+        self.decimation = 20
+        self.episode_length_s = 5.0
+        self.sim.render_interval = self.decimation
+
+        self.recording = False
         # move this scene here so that the correct number of envs
         # is present in the post_init function, allowing for intelligent 
         # peg and hole generations
@@ -489,9 +502,3 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
             env_spacing=self.env_spacing, 
             replicate_physics=self.replicate_physics
         )
-        """Post initialization."""
-        self.decimation = 12
-        self.episode_length_s = 5.0
-        self.sim.render_interval = self.decimation
-
-        self.recording = False

@@ -342,6 +342,8 @@ class WandbLoggerPPO(PPO):
 
                 # add count stats for success and engagement
                 self.count_stats['success'] = torch.zeros(size=(states.shape[0],1), device=states.device)
+                #print("init:", self.count_stats['success'])
+                #assert 1 == 0
                 self.count_stats['engaged'] = torch.zeros(size=(states.shape[0],1), device=states.device)
                             
             # this is a less efficent way to get the termination conditions, but isaac lab api has some issues
@@ -351,11 +353,13 @@ class WandbLoggerPPO(PPO):
                     #print("Manager:", env.unwrapped.reward_manager._episode_sums["keypoint_baseline"])
                     #print(f'\t\t{k}:{v}')
                     if k in self.m4_returns.keys():
-                        rew = v
+                            
                         if 'success' in k:
-                            self.count_stats['success'][v] = 1.0
+                            rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
+                            self.count_stats['success'][rew>0.0001] = 1.0
                         elif 'engaged' in k:
-                            self.count_stats['engaged'][v] = 1.0
+                            rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
+                            self.count_stats['engaged'][rew>0.0001] = 1.0
 
                         if 'Reward' in k:
                             rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
