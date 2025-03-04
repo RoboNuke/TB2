@@ -12,6 +12,7 @@ class DiscreteDMP():
                  dt: float= 0.001, 
                  cs: CS=CS(1.0, 0.001), 
                  num_envs: int=1, 
+                 num_dims: int=1,
                  device: str="cpu"
         ):
         self.nRBF = nRBF
@@ -20,9 +21,10 @@ class DiscreteDMP():
         self.cs = cs
         self.dt = dt
         self.num_envs = num_envs
+        self.num_dims = num_dims
         self.device = device
 
-        self.ws = torch.ones((self.num_envs, self.nRBF), device = self.device) #[1.0 for x in range(self.nRBF)]
+        self.ws = torch.ones((self.num_envs, self.nRBF, self.num_dims), device = self.device) #[1.0 for x in range(self.nRBF)]
 
         self.rbfs = RBF(can_sys=self.cs, num_rbfs=self.nRBF)
 
@@ -41,49 +43,44 @@ class DiscreteDMP():
         # t: time for each above point (timestep)
         # points are assumed to be pl
 
-        #print("init y:", y.shape)
-        self.goal = y[-1]
-        #print(self.goal.shape)
+        self.goal = y[:,-1,:].clone()
         x = self.cs.rollout()
-        #print("x:", x)
-        self.y0 = y[0]
-        #x = x.unsqueeze(1)
-        # rbMats = (len(x), num_rbfs)
+        self.y0 = y[:,0,:].clone()
+        
         rbMats = self.rbfs.eval(x) #[self.RBFs[i].theeMat(x) for i in range(self.nRBF)]
         #print("mats:", rbMats)
         #fd = ddy - self.ay * (self.by * (self.goal - y) - dy)
         #print(ddy/self.ay)
         #print((ddy/self.ay + dy) / self.by)
-        try:
-            a = ddy / self.ay + dy 
-        except:
-            a = torch.from_numpy(ddy/self.ay + dy)
-        b = (self.goal - self.y0) * x + y - self.goal
+        a = (ddy/self.ay) + dy#) / self.ay 
+        #print( (self.goal - self.y0).size(), x.size(), y.size(), self.goal.size())
+        b = (self.goal - self.y0)[:,None,:] * x[None,:,None] + y - self.goal[:,None,:]
+        #print("a,b:", a.size(), b.size())
         #fd = (ddy/self.ay + dy ) / self.by + (self.goal - self.y0) * x + y - self.goal
-        try:
-            fd = a/self.by + b
-            print("a try:", a.size())
-        except:
-            a = torch.from_numpy(ddy/self.ay + dy)
-            print("a except:", a.size())
-            fd = a/self.by + b
+        fd = a/self.by + b
+
         #print("fd:", fd)
-        s = x #* (self.goal - self.y0)
-        print(type(s), type(rbMats), type(fd))
-        print(s.size(), rbMats.size(), fd.size())
-        try:
-            top = torch.sum(s[:,None] * rbMats * fd[0,:,None], dim=0)
-        except:
-            top = torch.sum(s[:,None] * rbMats * fd[:,None], dim=0)
+        s = x#[None,:,None] #* (self.goal - self.y0)[:,None,:]
+        #print(type(s), type(rbMats), type(fd))
+        #print(s.size(), rbMats.size(), fd.size())
+        top = torch.sum(  (s[:,None] * rbMats)[None,:,:,None] * fd[:,:,None,:], dim=1)
+        #print("top:", top.size())
         bot = torch.sum( s[:,None] * rbMats * s[:,None], dim=0)
-        #print("top:", top)
-        #print("bot:", bot)
-        self.ws = top / bot
+        #print("top:", top.size())
+        #print("bot:", bot.size())
+        self.ws = top / bot[None,:,None]
         #print("ws pre:", self.ws)
-        print(self.goal, type(y))
-        print("y shape:", y.shape)
-        if abs(self.goal  - y[0]) > 0.0001:
-            self.ws /= (self.goal - y[0])
+        #print(self.goal.size(), self.y0.size())
+        #print(self.goal, type(y))
+        #print("y shape:", y.shape)
+        #print("w shape:", self.ws.size())
+
+        delta = self.goal[:,None,:]  - self.y0[:,None,:]
+        delta = delta.repeat( (1,self.nRBF,1))
+        delta_idx = delta > 0.00001
+        self.ws[delta_idx] /= delta[delta_idx] 
+        #if abs(delta) > 0.0001:
+        #    self.ws /= delta
         #print("ws post:", self.ws)
         #self.ws[0] = 0.0
 
@@ -157,11 +154,15 @@ class DiscreteDMP():
 
     def calcWPsi(self, x: float):
         thee = self.rbfs.eval(x) 
-        top =  torch.sum(thee * self.ws[None,:], dim=1)
+        #print(thee.size(), self.ws.size() )
+        top =  torch.sum(thee[None,:,None] * self.ws, dim=1)
         bot = torch.sum(thee, dim=0)
         
 
         bot[bot <= 1e-6] = 1.0
+        #print(bot)
+        #print("calcWPsi tb:", top.size(), bot.size())
+        #print( (top/bot).size())
         return top / bot
     
     def step(self, tau=1.0, error=0.0, external_force=None):
@@ -169,7 +170,8 @@ class DiscreteDMP():
 
         x = self.cs.step(tau=tau, error_coupling = ec)
         
-        F = self.calcWPsi(x) * (self.goal - self.y0) * x
+        #print(self.calcWPsi(x).size(), self.goal.size(), self.y0.size())
+        F = self.calcWPsi(x) * x #(self.goal - self.y0) * x
 
         #self.ddy = self.ay * (self.by * (self.goal - self.y) - self.dy) + F
         self.ddy = self.ay * (self.by * (self.goal - self.y - (self.goal - self.y0) * x + F) - self.dy)
@@ -185,41 +187,40 @@ class DiscreteDMP():
         return self.y, self.dy, self.ddy
 
     def reset(self, goal, y, dy = 0.0, ddy = 0.0):
-        self.y = y
-        self.dy = dy
-        self.ddy = ddy
-        self.y0 = self.y
-        self.goal = goal
+        self.y = y.clone()
+        self.dy = dy.clone()
+        self.ddy = ddy.clone()
+        self.y0 = self.y.clone()
+        self.goal = goal.clone()
         self.cs.reset()
 
     def rollout(self, g, y0, dy0=0, ddy0=0, tau=1, scale=1):
-        self.reset(g, y0.item(), dy0.item(), ddy0.item())
+        self.reset(g, y0, dy0, ddy0)
         t = 0.0
-        print("Rollout start:", y0)
-        z = [y0.item()]
-        print(z)
-        dz = [dy0.item()]
-        ddz = [ddy0.item()]
-        #print(self.dt)
-        ts = [0.0]
-        #print(f"Total Time:{self.cs.run_time * tau}")
+
+        # allocate memory
         timesteps = int(self.cs.timesteps * tau)
+        z = torch.zeros( (self.num_envs, timesteps+1, self.num_dims))
+        dz = torch.zeros_like(z)
+        ddz = torch.zeros_like(dz)
+        ts = torch.zeros(timesteps+1)
+        #print(self.dt)
+        ts[0] = t
+        z[:,0,:] = self.y
+        dz[:,0,:] = self.dy
+        ddz[:,0,:] = self.ddy
+        #print(f"Total Time:{self.cs.run_time * tau}")
         for it in range(timesteps):
             #t = np.log(self.cs.x) / -self.cs.ax
             t += self.cs.dt
 
             self.step(tau=tau, error=0.0, external_force=None)
 
-            z.append(self.y.item())
-            dz.append(self.dy.item())
-            ddz.append(self.ddy.item())
-            ts.append(t)
+            z[:,it+1,:] = self.y
+            dz[:,it+1,:] = self.dy
+            ddz[:,it+1,:] = self.ddy
+            ts[it+1] = t
 
-        z = np.array(z)
-        dz = np.array(dz)#/tau
-        #dz[0]*=tau
-        ddz = np.array(ddz)#/(tau**2)
-        #ddz[0]*=tau**2
         return(ts, z, dz, ddz)
 
 
@@ -288,47 +289,90 @@ def single_dim_test():
         plt.show()
 
 
-def multi_dim_test():
+def test(num_dims = 1, num_envs = 1, noise = 0.1,
+         tau=1.0, scale=1.0, tmax=1.0, dt=1/500):
     # define 3-D trajectories
-    dt = 1/500
-    tmax = 1.0
-    tau = 1.0
-    scale = 1.0
-        
-    dmp = DiscreteDMP(nRBF=10, betaY=12.5/4.0, dt=dt, cs=CS(ax=2.5, dt=dt))
+    dmp = DiscreteDMP(
+        nRBF=100, 
+        betaY=12.5/4.0, 
+        dt=dt, 
+        cs=CS(ax=2.5, dt=dt), 
+        num_envs=num_envs, 
+        num_dims=num_dims
+    )
 
-    t = torch.linspace(start=0.0, end=tmax, steps= int(tmax/dt) ) #/ tmax
-
-    y = torch.zeros(1, len(t), 3)
-    dy = torch.zeros_like(y)
-    ddy = torch.zeros_like(dy)
+    t = torch.linspace(start=0, end=tmax, steps= int(tmax/dt) ) 
     
-    sco = torch.tensor([10, 3, 5])
+    sco = torch.tensor([10.0, 3, 5])
     cco = torch.tensor([3,  6, 1.5])
+    
+    cco = cco.repeat(num_envs, 1)
+    sco = sco.repeat(num_envs,1)
+    for i in range(num_envs):
+        if i > 2:
+            cco[i,:] *= 0.25
+            sco[i,:] *= 0.25
+        else:
+            cco[i,:] = torch.roll(cco[i,:], i)
+    if num_dims < 3:
+        sco = sco[:,:num_dims]
+        cco = cco[:,:num_dims]
+        
+    y = torch.sin(sco[:,None,:] * t[None,:,None]) + torch.cos(cco[:,None,:] * t[None,:,None]) 
+    dy = sco[:,None,:] * torch.cos(sco[:,None,:]*t[None,:,None]) - cco[:, None,:] * torch.sin(cco[:, None,:]*t[None, :,None])
+    ddy = -sco[:, None,:]**2 * torch.sin(sco[:,None,:]*t[None,:,None]) - cco[:,None,:]**2 * torch.cos(cco[:,None,:]*t[None:,None])
 
-    y[0,:,:] = torch.sin(sco[None,:] * t[:,None]) + torch.cos(cco[None,:] * t[:,None]) 
-    dy[0,:,:] = sco[None,:] * torch.cos(sco[None,:]*t[:,None]) - cco[None,:] * torch.sin(cco[None,:]*t[:,None])
-    ddy[0,:,:] = -sco[None,:]**2 * torch.sin(sco[None,:]*t[:,None]) - cco[None,:]**2 * torch.cos(cco[None,:]*t[:,None])
+    #print(y.size(), dy.size(), ddy.size())
 
-    t *= tmax
-
-    fig, axs = plt.subplots(3)
-    fig.set_figwidth(800/96)
-    fig.set_figheight(1000/96)
+    fig, axs = plt.subplots(num_envs, num_dims)
+    fig.set_figwidth(num_dims / 3 * 1600/96)
+    fig.set_figheight(num_envs / 4 * 1000/96)
     fig.tight_layout(pad=5.0)
 
-    for i in range(3):
+    dmp.learnWeightsCSDT(y, dy, ddy, t)
+    print(torch.max(dmp.ws), torch.min(dmp.ws), torch.mean(dmp.ws))
+    #dmp.reset(y[:,0,:], dy[:,0,:], ddy[:,0,:])
+    #print("goal:", y[:,-1,i])
+    ts, z, dz, ddz = dmp.rollout(y[:,-1,:], y[:,0,:], dy[:,0,:], ddy[:,0,:], tau, scale)
+    #ts = t
+    #z = 0.95 * y
+    if num_dims > 1 and num_envs > 1:
+        for i in range(num_envs):
+            for j in range(num_dims):
+                axs[i,j].plot(t, y[i,:,j], label="Original")
+                axs[i,j].plot(ts, z[i,:,j], 'r--', label="Fit DMP")
+                axs[i,j].set_title(f"DMP (env={i}, dim={j})",  fontsize=20)
+                axs[i,j].set(xlabel = 'Time (s)')
+                axs[i,j].set(ylabel ='Position (m)')
+    elif num_dims > 1 and num_envs == 1:
+        for j in range(num_dims):
+            axs[j].plot(t, y[0,:,j], label="Original")
+            axs[j].plot(ts, z[0,:,j], 'r--', label="Fit DMP")
+            axs[j].set_title(f"DMP (dim={j})",  fontsize=20)
+            axs[j].set(xlabel = 'Time (s)')
+            axs[j].set(ylabel ='Position (m)')
+    elif num_dims == 1 and num_envs > 1:
+        for i in range(num_envs):
+            axs[i].plot(t, y[i,:,0], label="Original")
+            axs[i].plot(ts, z[i,:,0], 'r--', label="Fit DMP")
+            axs[i].set_title(f"DMP (env={i})",  fontsize=20)
+            axs[i].set(xlabel = 'Time (s)')
+            axs[i].set(ylabel ='Position (m)')
+    else:
+        axs.plot(t, y[0,:,0], label="Original")
+        axs.plot(ts, z[0,:,0], 'r--', label="Fit DMP")
+        axs.set_title(f"DMP",  fontsize=20)
+        axs.set(xlabel = 'Time (s)')
+        axs.set(ylabel ='Position (m)')
 
-        dmp.learnWeightsCSDT(y[0,:,i],dy[0,:,i],ddy[0,:,i],t)
-        dmp.reset(y[0,0,i], dy[0,0,i], ddy[0,0,i])
-        print("goal:", y[:,-1,i])
-        ts, z, dz, ddz = dmp.rollout(y[0,-1,i], y[0,0,i], dy[0,0,i], ddy[0,0,i], tau, scale)
-        axs[i].plot(t, y[0,:,i])
-        axs[i].plot(ts, z)
-        #axs[i].plot(t, dy1[0,:,i])
-        #axs[i].plot(t, ddy1[0,:,i])
+    plt.legend()
     plt.show()
 
 if __name__=="__main__":
-    single_dim_test()
-    multi_dim_test()
+    #single_dim_test()
+    #multi_dim_test()
+    test(num_dims=3,num_envs=4)
+    assert 1 == 0
+    for i in [1,4]:
+        for j in [1,3]:
+            test(num_dims=j,num_envs=i)
