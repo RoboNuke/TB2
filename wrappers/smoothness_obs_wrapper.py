@@ -16,7 +16,6 @@ class SmoothnessObservationWrapper(gym.Wrapper):
     def __init__(self, env)->None:
         #self.unwrapped = env
         super().__init__(env)
-        
         self.obs = {}
         self.obs['Smoothness / Squared Joint Velocity'] = torch.zeros((self.num_envs, 1), device=self.device)
         self.obs['Smoothness / Jerk'] = torch.zeros_like(self.obs['Smoothness / Squared Joint Velocity'])

@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from wrappers.DMP.cs import CS
 
 class RBF():
-    def __init__(self, can_sys: CS, num_rbfs: int=8):
+    def __init__(self, can_sys: CS, num_rbfs: int=8, device: str='cpu'):
+        self.device = device
         self.num_rbfs = num_rbfs
         self.can_sys = can_sys
         self.centerRBFsV2()
@@ -24,7 +25,7 @@ class RBF():
     #    return mat
     
     def centerRBFs(self):
-        des_c = torch.linspace(0, 1.0, self.num_rbfs)#+2)[1:-1]
+        des_c = torch.linspace(0, 1.0, self.num_rbfs, device=self.device)#+2)[1:-1]
         self.cs = torch.exp(-self.can_sys.ax * des_c)
         self.hs = self.num_rbfs / (self.cs ** 2) 
 
@@ -32,7 +33,7 @@ class RBF():
 
 
     def centerRBFsV2(self):
-        self.cs = torch.exp(-self.can_sys.ax * torch.linspace(0,1, self.num_rbfs))
+        self.cs = torch.exp(-self.can_sys.ax * torch.linspace(0,1, self.num_rbfs, device=self.device))
         #print("cs:", self.cs)
         self.hs = torch.zeros_like(self.cs)
         for i in range(self.num_rbfs -1):

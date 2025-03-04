@@ -53,6 +53,24 @@ def ee_angvel(
         return env.ee_angvel_fd
     except AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
+    
+def ee_linacc(
+    env: ManagerBasedRLEnv
+):
+    try:
+        compute_keypoint_value(env)#, dt=env.physics_dt))
+        return env.ee_linacc_fd
+    except AttributeError: # obs is called before init so data structures not in place
+        return torch.zeros((env.num_envs, 3), device=env.device)
+
+def ee_angacc(
+    env: ManagerBasedRLEnv
+):
+    try:
+        compute_keypoint_value(env)#, dt=env.physics_dt))
+        return env.ee_angacc_fd
+    except AttributeError: # obs is called before init so data structures not in place
+        return torch.zeros((env.num_envs, 3), device=env.device)
 
 def held_fixed_relative_pos(
     env: ManagerBasedRLEnv

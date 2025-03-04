@@ -164,6 +164,8 @@ def init_tensors(
 
     env.fingertip_midpoint_pos = torch.zeros((env.num_envs, 3), device=env.device)
     env.prev_fingertip_pos = torch.zeros((env.num_envs, 3), device=env.device)
+    env.prev_ee_linvel = torch.zeros((env.num_envs, 3), device=env.device)
+    env.prev_ee_angvel = torch.zeros((env.num_envs, 3), device=env.device)
     env.fingertip_midpoint_quat = env.identity_quat.clone()
     env.prev_fingertip_quat = env.identity_quat.clone()
     env.time_keypoint_update = 0.0
@@ -547,6 +549,9 @@ def compute_keypoint_value(
     # Finite-differencing results in more reliable velocity estimates.
     env.ee_linvel_fd = (env.fingertip_midpoint_pos - env.prev_fingertip_pos) / dt
     env.prev_fingertip_pos = env.fingertip_midpoint_pos.clone()
+
+    env.ee_linacc_fd = (env.ee_linvel_fd - env.prev_ee_linvel) / dt
+    env.prev_ee_linvel = env.ee_linvel_fd
     
     # Add state differences if velocity isn't being added.
     rot_diff_quat = torch_utils.quat_mul(
@@ -556,6 +561,9 @@ def compute_keypoint_value(
     rot_diff_aa = axis_angle_from_quat(rot_diff_quat)
     env.ee_angvel_fd = rot_diff_aa / dt
     env.prev_fingertip_quat = env.fingertip_midpoint_quat.clone()
+
+    env.ee_angacc_fd = (env.ee_angvel_fd - env.prev_ee_angvel) / dt
+    env.prev_ee_angvel = env.ee_angvel_fd
 
     # update keypoint location
     env.held_base_quat[:], env.held_base_pos[:] = torch_utils.tf_combine(

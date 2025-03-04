@@ -237,7 +237,6 @@ class ObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
-
         #joint_pos = ObsTerm(func = fac_mdp_obs.scaled_jnt_pos_rel) #func=mdp.joint_pos_rel)
         #joint_vel = ObsTerm(func = fac_mdp_obs.scaled_jnt_vel_rel) #mdp.joint_vel_rel)
         #object_position = ObsTerm(func=fpih_mdp_obs.object_position_in_robot_root_frame)
@@ -249,24 +248,38 @@ class ObservationsCfg:
         #    func=fac_mdp_obs.held_asset_pose
         #)
 
-        fingertip_pose = ObsTerm(
-            func= fac_mdp_obs.fingertip_pos
+        fingertip_pos = ObsTerm(
+            func= fac_mdp_obs.fingertip_pos,
+            history_length=20
+        )
+
+        fingertip_quat = ObsTerm(
+            func = fac_mdp_obs.fingertip_quat,
+            history_length=20
+        )
+
+        ee_linvel = ObsTerm(
+            func = fac_mdp_obs.ee_linvel,
+            history_length=20
+        )
+
+        ee_angvel = ObsTerm(
+            func = fac_mdp_obs.ee_angvel,            
+            history_length=20
+        )
+
+        ee_linacc = ObsTerm(
+            func = fac_mdp_obs.ee_linacc,
+            history_length=20
+        )
+
+        ee_angacc = ObsTerm(
+            func = fac_mdp_obs.ee_angacc,            
+            history_length=20
         )
 
         fingertip_pos_rel_fixed = ObsTerm(
             func = fac_mdp_obs.held_fixed_relative_pos
-        )
-
-        fingertip_quat = ObsTerm(
-            func = fac_mdp_obs.fingertip_quat
-        )
-
-        ee_linvel = ObsTerm(
-            func = fac_mdp_obs.ee_linvel
-        )
-
-        ee_angvel = ObsTerm(
-            func = fac_mdp_obs.ee_angvel
         )
 
         prev_action = ObsTerm(func=mdp.last_action)
@@ -456,6 +469,9 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
     num_envs = 2
     replicate_physics = True
     env_spacing = 2.5
+    decimation = 20
+    episode_length_s = 5.0
+
     # Basic settings
     events: EventCfg = EventCfg()
     observations: ObservationsCfg = ObservationsCfg()
@@ -489,8 +505,6 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
 
     def __post_init__(self):
         """Post initialization."""
-        self.decimation = 20
-        self.episode_length_s = 5.0
         self.sim.render_interval = self.decimation
 
         self.recording = False

@@ -26,7 +26,7 @@ class DiscreteDMP():
 
         self.ws = torch.ones((self.num_envs, self.nRBF, self.num_dims), device = self.device) #[1.0 for x in range(self.nRBF)]
 
-        self.rbfs = RBF(can_sys=self.cs, num_rbfs=self.nRBF)
+        self.rbfs = RBF(can_sys=self.cs, num_rbfs=self.nRBF, device=self.device)
 
         self.ddy = 0
         self.dy = 0
@@ -200,7 +200,7 @@ class DiscreteDMP():
 
         # allocate memory
         timesteps = int(self.cs.timesteps * tau)
-        z = torch.zeros( (self.num_envs, timesteps+1, self.num_dims))
+        z = torch.zeros( (self.num_envs, timesteps+1, self.num_dims), device=self.device)
         dz = torch.zeros_like(z)
         ddz = torch.zeros_like(dz)
         ts = torch.zeros(timesteps+1)
@@ -290,13 +290,13 @@ def single_dim_test():
 
 
 def test(num_dims = 1, num_envs = 1, noise = 0.1,
-         tau=1.0, scale=1.0, tmax=1.0, dt=1/500):
+         tau=1.0, scale=1.0, tmax=1.0, dt=1/50):
     # define 3-D trajectories
     dmp = DiscreteDMP(
         nRBF=10, 
         betaY=12.5/4.0, 
         dt=dt, 
-        cs=CS(ax=2.5, dt=dt), 
+        cs=CS(ax=2.5, dt=dt/tmax), 
         num_envs=num_envs, 
         num_dims=num_dims
     )
@@ -319,9 +319,12 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
         cco = cco[:,:num_dims]
         
     y = torch.sin(sco[:,None,:] * t[None,:,None]) + torch.cos(cco[:,None,:] * t[None,:,None]) 
+    y[-1,:,-1] = 3 # make an example with constant value
     dy = sco[:,None,:] * torch.cos(sco[:,None,:]*t[None,:,None]) - cco[:, None,:] * torch.sin(cco[:, None,:]*t[None, :,None])
+    dy[-1,:,-1] = 0
     ddy = -sco[:, None,:]**2 * torch.sin(sco[:,None,:]*t[None,:,None]) - cco[:,None,:]**2 * torch.cos(cco[:,None,:]*t[None:,None])
-
+    ddy[-1,:,-1] = 0
+    #ddy *= 0
     #print(y.size(), dy.size(), ddy.size())
 
     fig, axs = plt.subplots(num_envs, num_dims)
@@ -334,7 +337,7 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
     #dmp.reset(y[:,0,:], dy[:,0,:], ddy[:,0,:])
     #print("goal:", y[:,-1,i])
     ts, z, dz, ddz = dmp.rollout(y[:,-1,:], y[:,0,:], dy[:,0,:], ddy[:,0,:], tau, scale)
-    #ts = t
+    ts *= tmax
     #z = 0.95 * y
     if num_dims > 1 and num_envs > 1:
         for i in range(num_envs):
@@ -371,8 +374,8 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
 if __name__=="__main__":
     #single_dim_test()
     #multi_dim_test()
-    #test(num_dims=3,num_envs=4)
-    #assert 1 == 0
+    test(num_dims=3,num_envs=4, tmax=0.5)
+    assert 1 == 0
     for i in [1,4]:
         for j in [1,3]:
             test(num_dims=j,num_envs=i)
