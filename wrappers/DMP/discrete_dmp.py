@@ -293,7 +293,7 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
          tau=1.0, scale=1.0, tmax=1.0, dt=1/500):
     # define 3-D trajectories
     dmp = DiscreteDMP(
-        nRBF=100, 
+        nRBF=10, 
         betaY=12.5/4.0, 
         dt=dt, 
         cs=CS(ax=2.5, dt=dt), 
@@ -330,7 +330,7 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
     fig.tight_layout(pad=5.0)
 
     dmp.learnWeightsCSDT(y, dy, ddy, t)
-    print(torch.max(dmp.ws), torch.min(dmp.ws), torch.mean(dmp.ws))
+    #print(torch.max(dmp.ws), torch.min(dmp.ws), torch.mean(dmp.ws))
     #dmp.reset(y[:,0,:], dy[:,0,:], ddy[:,0,:])
     #print("goal:", y[:,-1,i])
     ts, z, dz, ddz = dmp.rollout(y[:,-1,:], y[:,0,:], dy[:,0,:], ddy[:,0,:], tau, scale)
@@ -371,8 +371,8 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
 if __name__=="__main__":
     #single_dim_test()
     #multi_dim_test()
-    test(num_dims=3,num_envs=4)
-    assert 1 == 0
+    #test(num_dims=3,num_envs=4)
+    #assert 1 == 0
     for i in [1,4]:
         for j in [1,3]:
             test(num_dims=j,num_envs=i)
