@@ -135,13 +135,17 @@ def main(
     env_cfg.episode_length_s = 5.0
     env_cfg.sim.dt = sim_dt
     env_cfg.decimation = dec#20
+    """
     env_cfg.observations.policy.fingertip_pos.history_length = dec
     env_cfg.observations.policy.fingertip_quat.history_length = dec
     env_cfg.observations.policy.ee_linvel.history_length = dec
     env_cfg.observations.policy.ee_angvel.history_length = dec
     env_cfg.observations.policy.ee_linacc.history_length = dec
     env_cfg.observations.policy.ee_angacc.history_length = dec
-    
+    """
+    env_cfg.scene.ee_imu.update_period = 0.0 #sim_dt
+    env_cfg.scene.ee_imu.history_length = dec
+    print("Decimation:", dec)
 
     # max iterations for training
     #if args_cli.max_steps:
@@ -279,7 +283,7 @@ def main(
     if args_cli.log_smoothness_metrics:
         print("\n\n[INFO] Recording Smoothness Metrics in info.\n\n")
         env = SmoothnessObservationWrapper(env)
-    print("pre dmp obs:", env.observation_space, env.single_observation_space)
+    #print("pre dmp obs:", env.observation_space, env.single_observation_space)
 
     env = DMPObservationWrapper(
         env=env,
@@ -288,13 +292,13 @@ def main(
         sim_dt=env_cfg.sim.dt,
         update_dt=0.1
     )
-    print("post dmp obs:", env.observation_space, env.single_observation_space)
+    #print("post dmp obs:", env.observation_space, env.single_observation_space)
     # wrap around environment for skrl
     env = SkrlVecEnvWrapper(
         env, 
         ml_framework="torch"
     )  # same as: `wrap_env(env, wrapper="auto")
-    print("post skrl obs:", env.observation_space)
+    #print("post skrl obs:", env.observation_space)
 
     #print("post:post:", env.action_space)
     #print("pre:", env.action_space)

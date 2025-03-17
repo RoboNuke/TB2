@@ -242,7 +242,13 @@ def reset_held_asset(
     env.ee_angvel_fd[:, :] = 0.0
     env.ee_linvel_fd[:, :] = 0.0
 
-
+def init_imu(
+    env: ManagerBasedRLEnv,
+    env_ids: torch.Tensor
+):
+    print("imu init")
+    env.traj_data = torch.zeros((env.num_envs, 19*env.cfg.decimation), device=env.device)
+    #env.scene['ee_imu']
 
 def reset_franka_above_fixed(
     env: ManagerBasedEnv,

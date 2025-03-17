@@ -17,6 +17,29 @@ if TYPE_CHECKING:
 
 from envs.factory.manager.mdp.events import compute_keypoint_value
 
+from dataclasses import asdict
+
+def ee_traj(
+    env: ManagerBasedRLEnv
+):
+    names = ["pos_w", "quat_w", "lin_vel_b", "ang_vel_b", "lin_acc_b", "ang_acc_b"]
+    dec = env.cfg.decimation
+    idx = 0
+    #print(env.scene['ee_imu'].data)
+    try:
+        #print(env.scene['ee_imu'].data)
+        data = asdict(env.scene['ee_imu'].data)
+    except RuntimeError:
+        return torch.zeros((env.num_envs, 19*env.cfg.decimation), device=env.device)
+    
+    for name in names:
+        dim = 4 if "quat" in name else 3
+        #print(data[name].size())
+        env.traj_data[:, idx:idx+dec*dim] = data[name].view((env.num_envs, dec*dim))
+        idx += dec * dim
+
+    return env.traj_data
+
 
 def fingertip_pos(
     env: ManagerBasedRLEnv

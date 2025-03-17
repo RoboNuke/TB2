@@ -49,6 +49,7 @@ from omni.isaac.lab.controllers.differential_ik_cfg import DifferentialIKControl
 from omni.isaac.lab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from omni.isaac.lab.utils import configclass
 
+from sensors.dense_pose_sensor.dense_pose_sensor import DummySensorCfg, DensePoseSensorCfg
 ##
 # Scene definition
 ##
@@ -190,13 +191,21 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         height=180,
         debug_vis = True,
     )
-
-    ee_trajectory: ImuCfg = ImuCfg(
+    """
+    ee_imu: ImuCfg = ImuCfg(
         prim_path="/World/envs/env_.*/Robot/panda_hand",
-        update_period = 1/200,
+        update_period = 0.0,
         history_length = 20,
         offset = ImuCfg.OffsetCfg(pos=[0.0, 0.0, 0.107])
     )
+    """
+    ee_imu: DensePoseSensorCfg = DensePoseSensorCfg(
+        prim_path="/World/envs/env_.*/Robot/panda_hand",
+        update_period = 0,
+        history_length = 20,
+        offset = ImuCfg.OffsetCfg(pos=[0.0, 0.0, 0.107])
+    )
+
 
 ##
 # MDP settings
@@ -247,7 +256,7 @@ class ObservationsCfg:
         #peg_pose = ObsTerm(
         #    func=fac_mdp_obs.held_asset_pose
         #)
-
+        """
         fingertip_pos = ObsTerm(
             func= fac_mdp_obs.fingertip_pos,
             history_length=20
@@ -276,6 +285,10 @@ class ObservationsCfg:
         ee_angacc = ObsTerm(
             func = fac_mdp_obs.ee_angacc,            
             history_length=20
+        )
+        """
+        ee_traj = ObsTerm(
+            func = fac_mdp_obs.ee_traj
         )
 
         fingertip_pos_rel_fixed = ObsTerm(
@@ -339,6 +352,11 @@ class EventCfg:
         params={
             "task_cfg": PegInsert()
         }
+    )
+
+    init_imu = EventTerm(
+        func=fac_mdp_events.init_imu,
+        mode="startup"
     )
 
     set_default_dynamics_params = EventTerm(

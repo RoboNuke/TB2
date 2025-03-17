@@ -294,9 +294,9 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
     # define 3-D trajectories
     dmp = DiscreteDMP(
         nRBF=10, 
-        betaY=12.5/4.0, 
+        betaY=25/4.0, 
         dt=dt, 
-        cs=CS(ax=2.5, dt=dt/tmax), 
+        cs=CS(ax=5, dt=dt/tmax), 
         num_envs=num_envs, 
         num_dims=num_dims
     )
@@ -320,6 +320,10 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
         
     y = torch.sin(sco[:,None,:] * t[None,:,None]) + torch.cos(cco[:,None,:] * t[None,:,None]) 
     y[-1,:,-1] = 3 # make an example with constant value
+    mult = 1.001
+    for i in range(int(tmax/dt)):
+        y[-1, i, -1] *= mult
+        mult += 0.001
     dy = sco[:,None,:] * torch.cos(sco[:,None,:]*t[None,:,None]) - cco[:, None,:] * torch.sin(cco[:, None,:]*t[None, :,None])
     dy[-1,:,-1] = 0
     ddy = -sco[:, None,:]**2 * torch.sin(sco[:,None,:]*t[None,:,None]) - cco[:,None,:]**2 * torch.cos(cco[:,None,:]*t[None:,None])
@@ -374,7 +378,7 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
 if __name__=="__main__":
     #single_dim_test()
     #multi_dim_test()
-    test(num_dims=3,num_envs=4, tmax=0.5)
+    test(num_dims=3,num_envs=4, tmax=0.5, dt=0.5/50)
     assert 1 == 0
     for i in [1,4]:
         for j in [1,3]:
