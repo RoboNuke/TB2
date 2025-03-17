@@ -191,20 +191,7 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         height=180,
         debug_vis = True,
     )
-    """
-    ee_imu: ImuCfg = ImuCfg(
-        prim_path="/World/envs/env_.*/Robot/panda_hand",
-        update_period = 0.0,
-        history_length = 20,
-        offset = ImuCfg.OffsetCfg(pos=[0.0, 0.0, 0.107])
-    )
-    """
-    ee_imu: DensePoseSensorCfg = DensePoseSensorCfg(
-        prim_path="/World/envs/env_.*/Robot/panda_hand",
-        update_period = 0,
-        history_length = 20,
-        offset = ImuCfg.OffsetCfg(pos=[0.0, 0.0, 0.107])
-    )
+    
 
 
 ##
@@ -256,41 +243,35 @@ class ObservationsCfg:
         #peg_pose = ObsTerm(
         #    func=fac_mdp_obs.held_asset_pose
         #)
-        """
+        
         fingertip_pos = ObsTerm(
-            func= fac_mdp_obs.fingertip_pos,
-            history_length=20
+            func= fac_mdp_obs.fingertip_pos
         )
 
         fingertip_quat = ObsTerm(
-            func = fac_mdp_obs.fingertip_quat,
-            history_length=20
+            func = fac_mdp_obs.fingertip_quat
         )
 
         ee_linvel = ObsTerm(
-            func = fac_mdp_obs.ee_linvel,
-            history_length=20
+            func = fac_mdp_obs.ee_linvel
         )
 
         ee_angvel = ObsTerm(
-            func = fac_mdp_obs.ee_angvel,            
-            history_length=20
+            func = fac_mdp_obs.ee_angvel
         )
 
-        ee_linacc = ObsTerm(
-            func = fac_mdp_obs.ee_linacc,
-            history_length=20
-        )
+        #ee_linacc = ObsTerm(
+        #    func = fac_mdp_obs.ee_linacc
+        #)
 
-        ee_angacc = ObsTerm(
-            func = fac_mdp_obs.ee_angacc,            
-            history_length=20
-        )
+        #ee_angacc = ObsTerm(
+        #    func = fac_mdp_obs.ee_angacc
+        #)
         """
         ee_traj = ObsTerm(
             func = fac_mdp_obs.ee_traj
         )
-
+        """
         fingertip_pos_rel_fixed = ObsTerm(
             func = fac_mdp_obs.held_fixed_relative_pos
         )
@@ -354,10 +335,10 @@ class EventCfg:
         }
     )
 
-    init_imu = EventTerm(
-        func=fac_mdp_events.init_imu,
-        mode="startup"
-    )
+    #init_imu = EventTerm(
+    #    func=fac_mdp_events.init_imu,
+    #    mode="startup"
+    #)
 
     set_default_dynamics_params = EventTerm(
         func=fac_mdp_events.set_default_dynamics_parameters,

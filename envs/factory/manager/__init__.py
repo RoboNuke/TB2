@@ -3,7 +3,7 @@ import gymnasium as gym
 from . import agents
 #from .factory_env import FactoryEnv
 from .factory_manager_env_cfg import FactoryManagerEnvCfg
-
+from .config.ObsDMP_factory_env_cfg import FactoryManagerEnvObsDMPCfg
 
 gym.register(
     id="TB2-Factor-PiH-v0",
@@ -14,3 +14,14 @@ gym.register(
         "BroNet_cfg_entry_point": f"{agents.__name__}:BroNet_ppo_cfg.yaml"
     },
 )
+
+gym.register(
+    id="TB2-Factor-PiH-ObsDMP-v0",
+    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": FactoryManagerEnvObsDMPCfg,
+        "BroNet_cfg_entry_point": f"{agents.__name__}:BroNet_ppo_cfg.yaml"
+    },
+)
+

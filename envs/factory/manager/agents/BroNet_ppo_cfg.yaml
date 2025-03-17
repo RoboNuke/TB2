@@ -38,8 +38,8 @@ agent:
 
   # logging and checkpoint
   experiment:
-    directory: "FPiH_franka"
-    experiment_name: "default_BroNet_franka"
+    directory: "Tests"
+    experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
 

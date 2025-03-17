@@ -12,26 +12,13 @@ parser.add_argument("--seed", type=int, default=1, help="Seed used for the envir
 parser.add_argument("--max_steps", type=int, default=10240000, help="RL Policy training iterations.")
 parser.add_argument("--force_encoding", type=str, default=None, help="Which type of force encoding to use if force is included")
 
-# video
-parser.add_argument("--record_evals", action="store_true", default=False, help="Record videos of evaluations")
-parser.add_argument("--record_training", action="store_true", default=False, help="Record videos of training at fixed interval")
-parser.add_argument("--train_video_interval", type=int, default=1000, help="Interval between video recordings (in steps).")
-parser.add_argument("--video_length", type=int, default=75, help="Length of the recorded video (in steps).")
-
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")
 parser.add_argument("--exp_dir", type=str, default=None, help="Directory to store the experiment in")
 parser.add_argument("--dump_yaml", action="store_true", default=False, help="Store config files in yaml format")
 parser.add_argument("--dump_pickle", action="store_true", default=False, help="Store config files in pickle format")
-parser.add_argument("--checkpoint_interval", type=int, default=None, help="How many ENV steps (not total steps) between saving checkpoints")
 parser.add_argument("--log_smoothness_metrics", action="store_true", default=False, help="Log the sum squared velocity, jerk and force metrics")
-
-# learning
-parser.add_argument("--learning_epochs", type=int, default=None)
-parser.add_argument("--mini_batches", type=int, default=None)
-parser.add_argument("--discount_factor", type=float, default=None)
-parser.add_argument("--learning_lambda", type=float, default=None)
-parser.add_argument("--learning_rate", type=float, default=None)
+parser.add_argument("--no_vids", action="store_true", default=False, help="Set up sim environment to support cameras")
 
 # wandb
 parser.add_argument("--no_log_wandb", action="store_false", default=True, help="Disables the wandb logger")
@@ -40,12 +27,14 @@ parser.add_argument("--wandb_project", type=str, default="Tester", help="Name of
 parser.add_argument("--wandb_api_key", type=str, default="-1", help="API key for WandB")
 parser.add_argument('--wandb_tags', nargs='*', default=[], help="WandB Tags to be applied to this run")
 
+
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
+
 # parse the arguments
 args_cli, hydra_args = parser.parse_known_args()
 
-if args_cli.record_training or args_cli.record_evals:   
+if not args_cli.no_vids:  
     args_cli.video = True
     args_cli.enable_cameras = True
 
@@ -113,8 +102,6 @@ def main(
     agent_cfg: dict
 ):
     global evaluating
-    print("starting main")
-    print(agent_cfg)
     """Train with skrl agent."""
     max_rollout_steps = agent_cfg['agent']['rollouts']
 
@@ -134,7 +121,7 @@ def main(
 
     env_cfg.episode_length_s = 5.0
     env_cfg.sim.dt = sim_dt
-    env_cfg.decimation = dec#20
+    env_cfg.decimation = dec
     """
     env_cfg.observations.policy.fingertip_pos.history_length = dec
     env_cfg.observations.policy.fingertip_quat.history_length = dec
@@ -143,8 +130,10 @@ def main(
     env_cfg.observations.policy.ee_linacc.history_length = dec
     env_cfg.observations.policy.ee_angacc.history_length = dec
     """
-    env_cfg.scene.ee_imu.update_period = 0.0 #sim_dt
-    env_cfg.scene.ee_imu.history_length = dec
+    if "ObsDMP" in args_cli.task:
+        env_cfg.scene.ee_imu.update_period = 0.0 # update every step
+        env_cfg.scene.ee_imu.history_length = dec
+        
     print("Decimation:", dec)
 
     # max iterations for training
@@ -189,28 +178,6 @@ def main(
 
     # agent configuration
 
-    # keeps default value if nothing is passed in args_cli
-    keys = [
-        'learning_epochs', 
-        'mini_batches', 
-        'discount_factor', 
-        'lambda', 
-        'learning_rate'
-    ]
-    vals = [
-        args_cli.learning_epochs, 
-        args_cli.mini_batches, 
-        args_cli.discount_factor, 
-        args_cli.learning_lambda, 
-        args_cli.learning_rate
-    ]
-    
-    for i in range(len(keys)):
-        agent_cfg['agent'][keys[i]] = vals[i] if vals[i] is not None else agent_cfg['agent'][keys[i]]
-    agent_cfg["agent"]["experiment"]["checkpoint_interval"] = (
-        args_cli.checkpoint_interval if args_cli.checkpoint_interval is not None else agent_cfg["agent"]["experiment"]["checkpoint_interval"]
-    )
-
     # dump the configuration into log-directory
     if args_cli.dump_yaml:
         dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
@@ -219,16 +186,9 @@ def main(
         dump_pickle(os.path.join(log_dir, "params", "env.pkl"), env_cfg)
         dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
 
-
-
     # determine video kwargs
-    vid = args_cli.record_evals or args_cli.record_training
-    vid_interval = args_cli.train_video_interval
-    vid_len = args_cli.video_length
-    eval_vid = args_cli.record_evals
-    train_vid = args_cli.record_training
-    if "video_tracking" in agent_cfg.keys() and not vid:
-        # only use cfg file if no parameters given and parameters in cfg
+    vid = not args_cli.no_vids
+    if vid:
         vid = True
         cfg = agent_cfg['video_tracking']
         vid_interval = cfg['train_video_interval']
@@ -242,17 +202,15 @@ def main(
         cfg=env_cfg, 
         render_mode="rgb_array" if vid else None
     )
-    vid_fps = int(1.0 / (env.cfg.sim.dt * env.cfg.sim.render_interval ))
-
-    print(f"\n*******Video Kwargs*******:\n\tvid:{vid}\n\tinterval:{vid_interval}")
-    print(f"\teval:{eval_vid}\n\ttrain:{train_vid}\n\tlength:{vid_len}")
-    print(f"\tFPS:{vid_fps}")
-    print("***************************")
-
-    #env = PrintActivity(env)
     
     if vid:
         # TODO: Setup dynamic config
+        vid_fps = int(1.0 / (env.cfg.sim.dt * env.cfg.sim.render_interval ))
+
+        print(f"\n*******Video Kwargs*******:\n\tvid:{vid}\n\tinterval:{vid_interval}")
+        print(f"\teval:{eval_vid}\n\ttrain:{train_vid}\n\tlength:{vid_len}")
+        print(f"\tFPS:{vid_fps}")
+        print("***************************")
         
         def check_record(step):
             global evaluating
@@ -283,27 +241,32 @@ def main(
     if args_cli.log_smoothness_metrics:
         print("\n\n[INFO] Recording Smoothness Metrics in info.\n\n")
         env = SmoothnessObservationWrapper(env)
-    #print("pre dmp obs:", env.observation_space, env.single_observation_space)
+        
+    #TODO: This is not a real variable right now!
+    #if args_cli.dmp_obs:
+    if "ObsDMP" in args_cli.task:
+        env = DMPObservationWrapper(
+            env=env,
+            num_weights=10,
+            fit_force_data=False,
+            sim_dt=env_cfg.sim.dt,
+            update_dt=0.1
+        )
+    
+    if "ActDMP" in args_cli.task:
+        print("Action DMPs currently unsupported")
 
-    env = DMPObservationWrapper(
-        env=env,
-        num_weights=10,
-        fit_force_data=False,
-        sim_dt=env_cfg.sim.dt,
-        update_dt=0.1
-    )
-    #print("post dmp obs:", env.observation_space, env.single_observation_space)
+    if "VIC" in args_cli.task:
+        print("VIC is currently not supported")
+
     # wrap around environment for skrl
     env = SkrlVecEnvWrapper(
         env, 
         ml_framework="torch"
     )  # same as: `wrap_env(env, wrapper="auto")
-    #print("post skrl obs:", env.observation_space)
-
-    #print("post:post:", env.action_space)
-    #print("pre:", env.action_space)
+    
     env = GripperCloseEnv(env)
-    #print("post:", env.action_space)
+    
     device = env.device
 
     memory = RandomMemory(
@@ -316,7 +279,7 @@ def main(
     # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html#models
     models = {}
     #models["policy"] = Shared(env.observation_space, env.action_space, device)
-    print("pre model obs space:", env.observation_space)
+    
     models['policy'] = BroAgent(
         observation_space=env.observation_space, 
         action_space=env.action_space,
@@ -354,6 +317,7 @@ def main(
     
     if vid:
         vid_env.set_agent(agent)
+
     # configure and instantiate the RL trainer
     cfg_trainer = {
         "timesteps": args_cli.max_steps // args_cli.num_envs, 

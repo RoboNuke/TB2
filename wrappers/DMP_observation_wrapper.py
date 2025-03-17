@@ -32,7 +32,7 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         self.num_weights = num_weights
         self.fit_ft = fit_force_data
         
-        
+        self.display_fit = False
         # calculating t values is tricky, I assume
         # that x = 0 is equal to update_dt
         # while using a tau may be the correct way, simpling scaling
@@ -105,20 +105,20 @@ class DMPObservationWrapper(gym.ObservationWrapper):
 
         ts, z, dz, ddz = self.pos_dmp.rollout(self.y[:,-1,:], self.y[:,0,:], self.dy[:,0,:], self.ddy[:,0,:])
 
+        if self.display_fit:
+            fig, axs = plt.subplots(self.num_envs, 3)
+            fig.set_figwidth(3 / 3 * 1600/96)
+            fig.set_figheight(self.num_envs / 4 * 1000/96)
+            fig.tight_layout(pad=5.0)
+            for i in range(self.num_envs):
+                for j in range(3):
+                    axs[i,j].plot(self.t.cpu(), self.y[i,:,j].cpu(), label="Original")
+                    axs[i,j].plot(ts.cpu()*0.1, z[i,:,j].cpu(), 'r--', label="Fit DMP")
+                    axs[i,j].set_title(f"DMP (env={i}, dim={j})",  fontsize=20)
+                    axs[i,j].set(xlabel = 'Time (s)')
+                    axs[i,j].set(ylabel ='Position (m)')
 
-        fig, axs = plt.subplots(self.num_envs, 3)
-        fig.set_figwidth(3 / 3 * 1600/96)
-        fig.set_figheight(self.num_envs / 4 * 1000/96)
-        fig.tight_layout(pad=5.0)
-        for i in range(self.num_envs):
-            for j in range(3):
-                axs[i,j].plot(self.t.cpu(), self.y[i,:,j].cpu(), label="Original")
-                axs[i,j].plot(ts.cpu()*0.1, z[i,:,j].cpu(), 'r--', label="Fit DMP")
-                axs[i,j].set_title(f"DMP (env={i}, dim={j})",  fontsize=20)
-                axs[i,j].set(xlabel = 'Time (s)')
-                axs[i,j].set(ylabel ='Position (m)')
-
-        plt.show()
+            plt.show()
 
         old_obs['policy'] = self.new_obs
         return old_obs
