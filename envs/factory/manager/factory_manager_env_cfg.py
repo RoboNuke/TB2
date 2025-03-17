@@ -233,16 +233,6 @@ class ObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
-        #joint_pos = ObsTerm(func = fac_mdp_obs.scaled_jnt_pos_rel) #func=mdp.joint_pos_rel)
-        #joint_vel = ObsTerm(func = fac_mdp_obs.scaled_jnt_vel_rel) #mdp.joint_vel_rel)
-        #object_position = ObsTerm(func=fpih_mdp_obs.object_position_in_robot_root_frame)
-        #force_torque = ObsTerm(func=fac_mdp_obs.force_torque_sensor)
-
-        #target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose"})
-
-        #peg_pose = ObsTerm(
-        #    func=fac_mdp_obs.held_asset_pose
-        #)
         
         fingertip_pos = ObsTerm(
             func= fac_mdp_obs.fingertip_pos

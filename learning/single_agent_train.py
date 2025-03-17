@@ -115,31 +115,19 @@ def main(
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
 
 
-    sim_dt = 1/500.0 
+    sim_dt = 1/20.0 
     dec =  int(0.1 / sim_dt )
     episode_length_s = 5.0
 
     env_cfg.episode_length_s = 5.0
     env_cfg.sim.dt = sim_dt
     env_cfg.decimation = dec
-    """
-    env_cfg.observations.policy.fingertip_pos.history_length = dec
-    env_cfg.observations.policy.fingertip_quat.history_length = dec
-    env_cfg.observations.policy.ee_linvel.history_length = dec
-    env_cfg.observations.policy.ee_angvel.history_length = dec
-    env_cfg.observations.policy.ee_linacc.history_length = dec
-    env_cfg.observations.policy.ee_angacc.history_length = dec
-    """
+    
     if "ObsDMP" in args_cli.task:
         env_cfg.scene.ee_imu.update_period = 0.0 # update every step
         env_cfg.scene.ee_imu.history_length = dec
-        
-    print("Decimation:", dec)
 
-    # max iterations for training
-    #if args_cli.max_steps:
-    #    agent_cfg["trainer"]["timesteps"] = args_cli.max_steps // max_rollout_steps
-    #agent_cfg["trainer"]["close_environment_at_exit"] = False
+    #print("Decimation:", dec)
 
     # randomly sample a seed if seed = -1
     if args_cli.seed == -1:
@@ -174,7 +162,7 @@ def main(
     agent_cfg["agent"]["experiment"]["experiment_name"] = log_dir
     # update log_dir
     log_dir = os.path.join(log_root_path, log_dir)
-    print("final log_dir=\n\t", log_dir)
+    #print("final log_dir=\n\t", log_dir)
 
     # agent configuration
 
@@ -189,12 +177,17 @@ def main(
     # determine video kwargs
     vid = not args_cli.no_vids
     if vid:
-        vid = True
         cfg = agent_cfg['video_tracking']
         vid_interval = cfg['train_video_interval']
         vid_len = cfg['video_length']
         eval_vid = cfg['record_evals']
         train_vid = cfg['record_training']
+    else:
+        print("\n\nNo Videos will be recorded\n\n")
+        delattr(env_cfg.observations.info, "img")
+        eval_vid = False
+        train_vid = False
+        delattr(env_cfg.scene,"tiled_camera")
         
     # create env
     env = gym.make(
@@ -242,7 +235,6 @@ def main(
         print("\n\n[INFO] Recording Smoothness Metrics in info.\n\n")
         env = SmoothnessObservationWrapper(env)
         
-    #TODO: This is not a real variable right now!
     #if args_cli.dmp_obs:
     if "ObsDMP" in args_cli.task:
         env = DMPObservationWrapper(
@@ -334,7 +326,7 @@ def main(
     env.recording = vid # True
     # our actual learning loop
     ckpt_int = agent_cfg["agent"]["experiment"]["checkpoint_interval"]
-    num_evals = args_cli.max_steps // (ckpt_int * args_cli.num_envs)
+    num_evals = max(1,args_cli.max_steps // (ckpt_int * args_cli.num_envs))
     evaluating = True
     if eval_vid:   
         vid_env.set_video_name(f"evals/eval_0")

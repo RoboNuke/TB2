@@ -15,8 +15,6 @@ class DMPObservationWrapper(gym.ObservationWrapper):
     """
         Takes the time series information in observation and replaces it with a set of 
         weights from a DMP that represent the trajectory 
-
-
     """
     def __init__(
             self, 
@@ -122,37 +120,4 @@ class DMPObservationWrapper(gym.ObservationWrapper):
 
         old_obs['policy'] = self.new_obs
         return old_obs
-    """
-    def reset(self, **kwargs):
-        old_obs, info = self.env.reset(**kwargs)
-        # weights we want, plus old obs, minus all vars for the histories
-        
-        if not self.new_obs.size()[1] == new_dim:
-            self.new_obs = torch.zeros( (self.num_envs, new_dim), device=self.device)
-        
-        for i in range(len(self.unpack_list)):
-            var_ref, var_name = self.unpack_list[i]
-            var_ref = old_obs['policy'][var_name][:, i*self.dec:(i+1)*self.dec].view(
-                (self.num_envs, 4 if "quat" in var_name else 3)
-            )
-        
-        self.pos_dmp.learnWeightsCSDT(self.y, self.dy, self.ddy, self.t)
-        self.new_obs[:, :self.num_weights * 3 ] = self.pos_dmp.ws.view(self.num_envs, self.num_weights * 3)
-        self.new_obs[:, self.num_weights * 3 * 1:] = old_obs[:, (6 * self.dec * 3):]
-        return self.new_obs, info
     
-    def step(self, action):
-        #observation, r, term, trun, info = self.unwrapped.step(action)
-        old_obs, r, term, trun, info = self.env.step(action)
-
-        for i in range(len(self.unpack_list)):
-            var_ref, var_name = self.unpack_list[i]
-            var_ref = old_obs['policy'][var_name][:, i*self.dec:(i+1)*self.dec].view(
-                (self.num_envs, 4 if "quat" in var_name else 3)
-            )
-        
-        self.pos_dmp.learnWeightsCSDT(self.y, self.dy, self.ddy, self.t)
-        self.new_obs[:, :self.num_weights * 3 ] = self.pos_dmp.ws.view(self.num_envs, self.num_weights * 3)
-        self.new_obs[:, self.num_weights * 3 * 1:] = old_obs[:, (6 * self.dec * 3):]
-        return self.new_obs, r, term, trun, info
-    """
