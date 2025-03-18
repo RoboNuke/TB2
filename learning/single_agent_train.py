@@ -111,12 +111,12 @@ def main(
     
     # override configurations with non-hydra CLI arguments
     env_cfg.scene.num_envs = args_cli.num_envs 
-    env_cfg.scene.replicate_physics = False
+    env_cfg.scene.replicate_physics = True
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
 
     
     sim_dt = 1/200.0 
-    policy_dt = 50*sim_dt
+    policy_dt = 0.1#50*sim_dt
     dec =  int(policy_dt / sim_dt )
     episode_length_s = 5.0
 
@@ -354,6 +354,14 @@ def main(
 
 if __name__ == "__main__":
     # run the main function
-    main()
+    import cProfile
+    #import pstats
+
+    #with cProfile.Profile() as pr:
+    #main()
+    #    with open('tests/profile.txt', 'w') as f:
+    #        pstats.Stats( pr, stream=f ).strip_dirs().sort_stats("cumtime").print_stats()
+    cProfile.run('main()', 'single_agent.profile')
+
     # close sim app
     simulation_app.close()

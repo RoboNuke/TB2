@@ -16,7 +16,7 @@ models:
 
 agent:
   class: PPO
-  rollouts: 20 #50 #75
+  rollouts: 50 #75
   learning_epochs: 2
   mini_batches: 32 #500 # 128 steps / minibatch
   discount_factor: 0.99
@@ -41,14 +41,14 @@ agent:
     directory: "Tests"
     experiment_name: "test"
     write_interval: 50 #75
-    checkpoint_interval: 2000
+    checkpoint_interval: 100 #2000
 
 video_tracking:
   # note to use this must run with --video --enable_cameras
   record_training: True
-  train_video_interval: 500 #450
+  train_video_interval: 450
   record_evals: True
-  video_length: 20 #50
+  video_length: 50
 
 
 defaults:
