@@ -45,6 +45,7 @@ class DiscreteDMP():
 
         self.goal = y[:,-1,:].clone()
         x = self.cs.rollout()
+        
         self.y0 = y[:,0,:].clone()
         
         rbMats = self.rbfs.eval(x) #[self.RBFs[i].theeMat(x) for i in range(self.nRBF)]
@@ -301,7 +302,7 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
         num_dims=num_dims
     )
 
-    t = torch.linspace(start=0, end=tmax, steps= int(tmax/dt) ) 
+    t = torch.linspace(start=0, end=tmax, steps= int(tmax/dt)+1 ) 
     
     sco = torch.tensor([10.0, 3, 5])
     cco = torch.tensor([3,  6, 1.5])
@@ -319,15 +320,19 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
         cco = cco[:,:num_dims]
         
     y = torch.sin(sco[:,None,:] * t[None,:,None]) + torch.cos(cco[:,None,:] * t[None,:,None]) 
-    y[-1,:,-1] = 3 # make an example with constant value
-    mult = 1.001
-    for i in range(int(tmax/dt)):
-        y[-1, i, -1] *= mult
-        mult += 0.001
+    y[0,:,0] = 3
+    y[-1,:,-1] = 3 # make an example with a small change in value
+    diff = 0.01
+    y[-1,-1,-1] += diff
+    for i in range(int(tmax/dt)+1):
+        y[-1, i, -1] = y[-1,0,-1] + diff * i / (int(tmax/dt)+1)
+
     dy = sco[:,None,:] * torch.cos(sco[:,None,:]*t[None,:,None]) - cco[:, None,:] * torch.sin(cco[:, None,:]*t[None, :,None])
     dy[-1,:,-1] = 0
+    dy[0,:,0] = 0
     ddy = -sco[:, None,:]**2 * torch.sin(sco[:,None,:]*t[None,:,None]) - cco[:,None,:]**2 * torch.cos(cco[:,None,:]*t[None:,None])
     ddy[-1,:,-1] = 0
+    ddy[0,:,0] = 0
     #ddy *= 0
     #print(y.size(), dy.size(), ddy.size())
 
@@ -375,9 +380,123 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
     plt.legend()
     plt.show()
 
+
+def data_sensitivity_test(plot=True):
+    # straight line, small increase, s-curve, y0=g curve, up curve, down curve
+    # define 3-D trajectories
+    sco = torch.tensor([[0,10.0, 5.0],[0, 2.5, 5]])
+    cco = torch.tensor([[0,1.5, 1.5],[0, 0.75, 6]])
+
+    names = [["Constant", "S-Curve", "Init = Goal Curve"],["Small Increase", "Term Up Curve", "Term Down Curve"]]
+
+    tmax = 0.5
+    tau = 1.0
+    scale = 1.0
+    noise = 0.1
+    num_envs = 2
+    num_dims = 3
+    max_t = 101
+    t_vals = [k * 10 for k in range(2,max_t)]
+    dts = [1/(10*k-1) for k in range(2,max_t)]
+    error = torch.zeros((len(dts), num_envs, num_dims))
+    for dt_idx, dt in enumerate(dts):
+        dmp = DiscreteDMP(
+            nRBF=10, 
+            betaY=25/4.0, 
+            dt=dt, 
+            cs=CS(ax=5, dt=dt/tmax), 
+            num_envs=num_envs, 
+            num_dims=num_dims
+        )
+        #print("cs dt:", dt/tmax)
+        #print(dmp.cs.dt, dmp.cs.timesteps)
+        #print("dt", dt, int(tmax/dt))
+
+        t = torch.linspace(start=0, end=tmax, steps= int(tmax/dt)+1 ) 
+        y = torch.sin(sco[:,None,:] * t[None,:,None]) + torch.cos(cco[:,None,:] * t[None,:,None]) 
+        
+        y[0,:,0] = 3
+        y[1,:,0] = 3 # make an example with a small change in value
+        diff = 0.01
+        y[1,-1,0] += diff
+        for i in range(int(tmax/dt)+1):
+            y[1,i,0] = y[1,0,0] + diff * i / (int(tmax/dt)+1)
+
+        dy = sco[:,None,:] * torch.cos(sco[:,None,:]*t[None,:,None]) - cco[:, None,:] * torch.sin(cco[:, None,:]*t[None, :,None])
+        dy[1,:,0] = 0
+        dy[0,:,0] = 0
+        ddy = -sco[:, None,:]**2 * torch.sin(sco[:,None,:]*t[None,:,None]) - cco[:,None,:]**2 * torch.cos(cco[:,None,:]*t[None:,None])
+        ddy[1,:,0] = 0
+        ddy[0,:,0] = 0
+
+        dmp.learnWeightsCSDT(y, dy, ddy, t)
+        #print(torch.max(dmp.ws), torch.min(dmp.ws), torch.mean(dmp.ws))
+        #dmp.reset(y[:,0,:], dy[:,0,:], ddy[:,0,:])
+        #print("goal:", y[:,-1,i])
+        ts, z, dz, ddz = dmp.rollout(y[:,-1,:], y[:,0,:], dy[:,0,:], ddy[:,0,:], tau, scale)
+        ts *= tmax
+        
+        error[dt_idx,:,:] = torch.sum((y - z) * (y - z), 1) / t_vals[dt_idx] # sum squred error
+        #error[dt_idx,0, 2] *= 0
+        
+        if t_vals[dt_idx] in [20, 30, 50, 200, 500, t_vals[-1]]:
+            fig, axs = plt.subplots(num_envs, num_dims)
+            fig.set_figwidth(num_dims / 3 * 1600/96)
+            fig.set_figheight(num_envs / 4 * 1000/96)
+            fig.tight_layout(pad=5.0)
+            for i in range(num_envs):
+                for j in range(num_dims):
+                    axs[i,j].plot(t, y[i,:,j], label="Original")
+                    axs[i,j].plot(ts, z[i,:,j], 'r--', label="Fit DMP")
+                    axs[i,j].set_title(names[i][j])
+                    axs[i,j].set(xlabel = '# Data Points')
+                    axs[i,j].set(ylabel ='Sum Squared Error')
+            fig.suptitle(f"Fit at {t_vals[dt_idx]}",  fontsize=20)
+            plt.legend()
+            plt.savefig(f"/home/hunter/Pictures/profiles/{t_vals[dt_idx]}_fit.png")
+            #plt.show()
+        
+    # plot type error + average error
+    fig, axs = plt.subplots(num_envs, num_dims)
+    fig.set_figwidth(num_dims / 3 * 1600/96)
+    fig.set_figheight(num_envs / 4 * 1000/96)
+    fig.tight_layout(pad=5.0)
+
+    for dim_idx in range(num_dims):
+        for env_idx in range(num_envs):
+            axs[env_idx,dim_idx].plot(t_vals, error[:,env_idx, dim_idx])
+            axs[env_idx, dim_idx].set_title(names[env_idx][dim_idx],  fontsize=20)
+            axs[env_idx, dim_idx].set(xlabel = '# Data Points')
+            axs[env_idx, dim_idx].set(ylabel ='Sum Squared Error')
+    plt.savefig(f"/home/hunter/Pictures/profiles/individual_error.png")
+
+    tot_error = [torch.sum(error[i,:,:]) for i in range(len(t_vals))]
+    fig2, ax2 = plt.subplots()
+    ax2.plot(t_vals, tot_error)
+    ax2.set_title("Total Error")
+    ax2.set(xlabel = "# Data Points")
+    ax2.set(ylabel = "Sum Squared Error")
+    plt.savefig(f"/home/hunter/Pictures/profiles/total_error.png")
+    #plt.show()
+
+    fig3, ax3 = plt.subplots()
+    for dim_idx in range(num_dims):
+        for env_idx in range(num_envs):
+            ax3.plot(t_vals, error[:,env_idx, dim_idx], label=names[env_idx][dim_idx])
+    ax3.set_title("Individual Error")
+    ax3.set(xlabel = "# Data Points")
+    ax3.set(ylabel = "Sum Squared Error")
+    ax3.legend()
+    plt.savefig(f"/home/hunter/Pictures/profiles/individual_overlapping.png")
+        
+
+
+
 if __name__=="__main__":
     #single_dim_test()
     #multi_dim_test()
+    data_sensitivity_test()
+    assert 1 == 0
     test(num_dims=3,num_envs=4, tmax=0.5, dt=0.5/50)
     assert 1 == 0
     for i in [1,4]:

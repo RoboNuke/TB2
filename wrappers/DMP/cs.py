@@ -24,7 +24,7 @@ class CS():
     def rollout(self, tau=1.0):
         self.reset()
         self.xPath *= 0.0
-        self.xPath = torch.zeros((int(self.timesteps * tau)), device = self.device)
+        self.xPath = torch.zeros((int(self.timesteps * tau)+1), device = self.device)
         for t in range( int(self.timesteps * tau)):
             self.xPath[t] = self.x
             self.step(tau=tau)
