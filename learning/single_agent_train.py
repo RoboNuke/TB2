@@ -122,6 +122,7 @@ def main(
     env_cfg.episode_length_s = 5.0
     env_cfg.sim.dt = sim_dt
     env_cfg.decimation = dec
+    env_cfg.sim.render_interval = dec
     
     if "ObsDMP" in args_cli.task:
         env_cfg.scene.ee_imu.update_period = 0.0 # update every step
