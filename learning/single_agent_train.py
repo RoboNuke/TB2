@@ -114,9 +114,10 @@ def main(
     env_cfg.scene.replicate_physics = False
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
 
-
+    
     sim_dt = 1/200.0 
-    dec =  int(0.1 / sim_dt )
+    policy_dt = 50*sim_dt
+    dec =  int(policy_dt / sim_dt )
     episode_length_s = 5.0
 
     env_cfg.episode_length_s = 5.0
@@ -243,7 +244,7 @@ def main(
             num_weights=10,
             fit_force_data=False,
             sim_dt=env_cfg.sim.dt,
-            update_dt=0.1
+            update_dt=policy_dt
         )
     
     if "ActDMP" in args_cli.task:

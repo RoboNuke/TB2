@@ -473,7 +473,7 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
     
     sim: SimulationCfg = SimulationCfg(
         device="cuda:0",
-        dt= 1 / 200,
+        dt= 1 / 200.0,
         gravity=(0.0, 0.0, -9.81),
         physx=PhysxCfg(
             solver_type=1,
