@@ -495,8 +495,8 @@ def data_sensitivity_test(plot=True):
 if __name__=="__main__":
     #single_dim_test()
     #multi_dim_test()
-    data_sensitivity_test()
-    assert 1 == 0
+    #data_sensitivity_test()
+    #assert 1 == 0
     test(num_dims=3,num_envs=4, tmax=0.5, dt=0.5/50)
     assert 1 == 0
     for i in [1,4]:

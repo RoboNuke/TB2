@@ -129,6 +129,10 @@ def main(
         env_cfg.scene.ee_imu.update_period = 0.0 # update every step
         env_cfg.scene.ee_imu.history_length = dec
 
+    if "ActDMP" in args_cli.task:
+        env_cfg.actions.arm_action.decimation = dec
+        env_cfg.actions.arm_action.dmp_cfg.dt = sim_dt
+
     #print("Decimation:", dec)
 
     # randomly sample a seed if seed = -1
@@ -232,6 +236,7 @@ def main(
         vid_env = env
     else:
         vid_env = None
+        
 
     if args_cli.log_smoothness_metrics:
         print("\n\n[INFO] Recording Smoothness Metrics in info.\n\n")
@@ -239,6 +244,7 @@ def main(
         
     #if args_cli.dmp_obs:
     if "ObsDMP" in args_cli.task:
+        print("using obs dmp wrapper")
         env = DMPObservationWrapper(
             env=env,
             num_weights=10,
@@ -258,6 +264,7 @@ def main(
         env, 
         ml_framework="torch"
     )  # same as: `wrap_env(env, wrapper="auto")
+    
     
     env = GripperCloseEnv(env)
     

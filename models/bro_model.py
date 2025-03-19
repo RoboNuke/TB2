@@ -200,7 +200,6 @@ class BroAgent(GaussianMixin, DeterministicMixin, Model):
         Model.__init__(self, observation_space, action_space, device)
         GaussianMixin.__init__(self, clip_actions, clip_log_std, min_log_std, max_log_std, reduction)
         DeterministicMixin.__init__(self, clip_actions)
-
         self.feature_net = NatureCNN(
             obs_size=self.num_observations, 
             with_state=True,
