@@ -485,7 +485,7 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
             gpu_max_rigid_contact_count=2**23,
             gpu_max_rigid_patch_count=2**23,
             gpu_max_num_partitions=1,  # Important for stable simulation.
-            gpu_collision_stack_size=68154064
+            gpu_collision_stack_size=100000000
         ),
         physics_material=RigidBodyMaterialCfg(
             static_friction=1.0,
