@@ -40,8 +40,8 @@ agent:
   experiment:
     directory: "Tests"
     experiment_name: "test"
-    write_interval: 50 #75
-    checkpoint_interval: 100 #2000
+    write_interval: 200 #75
+    checkpoint_interval: 2000
 
 video_tracking:
   # note to use this must run with --video --enable_cameras

@@ -354,14 +354,14 @@ def main(
 
 if __name__ == "__main__":
     # run the main function
-    import cProfile
+    #import cProfile
     #import pstats
 
     #with cProfile.Profile() as pr:
-    #main()
+    main()
     #    with open('tests/profile.txt', 'w') as f:
     #        pstats.Stats( pr, stream=f ).strip_dirs().sort_stats("cumtime").print_stats()
-    cProfile.run('main()', 'single_agent.profile')
+    #cProfile.run('main()', 'single_agent.profile')
 
     # close sim app
     simulation_app.close()
