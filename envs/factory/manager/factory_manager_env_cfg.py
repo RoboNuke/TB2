@@ -176,7 +176,7 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
 
     held_asset: ArticulationCfg = PegInsert().held_asset
 
-    """tiled_camera: TiledCameraCfg = TiledCameraCfg(
+    tiled_camera: TiledCameraCfg = TiledCameraCfg(
         prim_path="/World/envs/env_.*/Camera",
         offset=TiledCameraCfg.OffsetCfg(
             pos=(1.0, 0.0, 0.35), 
@@ -190,7 +190,7 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         width=240,
         height=180,
         debug_vis = True,
-    )"""
+    )
     
 
 
@@ -297,7 +297,7 @@ class ObservationsCfg:
 
         joint_acc = ObsTerm(func=fac_mdp_obs.joint_acc_rel)
 
-        #img = ObsTerm(func=fac_mdp_obs.camera_image)
+        img = ObsTerm(func=fac_mdp_obs.camera_image)
 
         def __post_init__(self):
             self.enable_corruption = False
