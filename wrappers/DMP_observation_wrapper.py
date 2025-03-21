@@ -8,6 +8,7 @@ import gymnasium.spaces.utils
 import torch
 from wrappers.DMP.discrete_dmp import DiscreteDMP
 from wrappers.DMP.cs import CS
+from wrappers.DMP.quaternion_dmp import QuaternionDMP
 
 import matplotlib.pyplot as plt
 
@@ -30,7 +31,7 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         self.num_weights = num_weights
         self.fit_ft = fit_force_data
         
-        self.display_fit = False
+        self.display_fit = True
         # calculating t values is tricky, I assume
         # that x = 0 is equal to update_dt
         # while using a tau may be the correct way, simpling scaling
@@ -42,19 +43,22 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         self.dec = int(self.update_dt / self.sim_dt)
 
         old_shape = self.observation_space['policy'].shape[1]
-        new_dim = self.num_weights * 3 * 1 + old_shape - 6 * self.dec * 3 - self.dec
+        new_dim = self.num_weights * 6 #3 * 1 + old_shape - 6 * self.dec * 3 - self.dec
         #print("old:", old_shape, "new:", new_dim)
         self.observation_space['policy'] = Box(low = -np.inf, high= np.inf, shape=(self.num_envs, new_dim))
         self.single_observation_space['policy'] = Box(low = -np.inf, high= np.inf, shape=(new_dim, ))
         
         # define data containers
-        self.t = torch.linspace(start=0, end=self.update_dt, steps= int(self.update_dt/self.sim_dt) ) 
-        self.y = torch.zeros((self.num_envs, self.dec, 3), device=self.device)
-        self.dy = torch.zeros((self.num_envs, self.dec, 3), device=self.device)
-        self.ddy = torch.zeros((self.num_envs, self.dec, 3), device=self.device)
-        self.ay = torch.zeros((self.num_envs, self.dec, 4), device=self.device)
-        self.day = torch.zeros((self.num_envs, self.dec, 3), device=self.device)
-        self.dday = torch.zeros((self.num_envs, self.dec, 3), device=self.device)
+        # note: you add one to include the starting point. This is the last location the policy was at in the last timestep
+        
+        self.t = torch.linspace(start=0, end=self.update_dt, steps= int(self.update_dt/self.sim_dt)+1 ) 
+        self.y = torch.zeros((self.num_envs, self.dec+1, 3), device=self.device)
+        self.dy = torch.zeros((self.num_envs, self.dec+1, 3), device=self.device)
+        self.ddy = torch.zeros((self.num_envs, self.dec+1, 3), device=self.device)
+        self.ay = torch.zeros((self.num_envs, self.dec+1, 4), device=self.device)
+        self.ay[:,:,0] = 1.0
+        self.day = torch.zeros((self.num_envs, self.dec+1, 4), device=self.device)
+        self.dday = torch.zeros((self.num_envs, self.dec+1, 4), device=self.device)
 
         # set a ref list to make step func look pretty
         self.unpack_list = [
@@ -67,15 +71,34 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         ]
 
         # define the DMPs
-        self.cs = CS(ax=2.5, dt=self.dt, device=self.device)
+        self.cs = CS(
+            ax=2, 
+            dt=self.dt, 
+            device=self.device
+        )
+
         self.pos_dmp = DiscreteDMP(
             nRBF=self.num_weights, 
-            betaY=12.5/4.0, 
+            betaY=50/4.0, 
             dt=self.dt, 
             cs=self.cs, 
             num_envs=self.num_envs, 
             num_dims=3,
             device=self.device
+        )
+
+
+        self.ang_dmp = QuaternionDMP(
+            nRBF=self.num_weights,
+            betaY=12/4,
+            dt = self.dt,
+            cs = CS(
+                    ax=1, 
+                    dt=self.dt, 
+                    device=self.device
+            ),
+            num_envs= self.num_envs,
+            device = self.device
         )
 
         # our new obs (num_weights * dim_per_(ang/pos) * (ang + pos))
@@ -90,21 +113,39 @@ class DMPObservationWrapper(gym.ObservationWrapper):
             var_name, var_ref = self.unpack_list[i]
             dim = 4 if "quat" in var_name else 3
             #print(f"{var_name}: {idx}, {idx + self.dec*dim}")
-            var_ref[:,:,:] = old_obs['policy'][:, idx:idx + self.dec*dim].view(
-                (self.num_envs, self.dec, dim)
-            )
+            if "ang" in var_name:
+                var_ref[:,1:,1:] = old_obs['policy'][:, idx:idx + self.dec*dim].view(
+                    (self.num_envs, self.dec, dim)
+                )
+            else:
+                var_ref[:,1:,:] = old_obs['policy'][:, idx:idx + self.dec*dim].view(
+                    (self.num_envs, self.dec, dim)
+                )
             idx += self.dec * dim
         
         #print(self.y[0,:,0])
         self.pos_dmp.learnWeightsCSDT(self.y, self.dy, self.ddy, self.t)
-        #print(self.pos_dmp.ws)
+        self.ang_dmp.learnWeightsCSDT(self.ay, self.day, self.dday, self.t)
+        print(self.ay)
         self.new_obs[:, :(self.num_weights * 3) ] = self.pos_dmp.ws.view(self.num_envs, self.num_weights * 3)
-        self.new_obs[:, (self.num_weights * 3 * 1):] = old_obs['policy'][:, (6 * self.dec * 3 + self.dec):]
+        self.new_obs[:, (self.num_weights * 3):] = self.ang_dmp.w.reshape(self.num_envs, self.num_weights * 3) 
+        print(self.new_obs)
 
-        ts, z, dz, ddz = self.pos_dmp.rollout(self.y[:,-1,:], self.y[:,0,:], self.dy[:,0,:], self.ddy[:,0,:])
+        # move final obs to init position
+        for i in range(len(self.unpack_list)):
+            var_name, var_ref = self.unpack_list[i]
+            var_ref[:,0,:] = var_ref[:,-1,:]
 
         if self.display_fit:
-            fig, axs = plt.subplots(self.num_envs, 3)
+            ts, z, dz, ddz = self.pos_dmp.rollout(self.y[:,-1,:], self.y[:,0,:], self.dy[:,0,:], self.ddy[:,0,:])
+            ts, az, daz, ddaz = self.ang_dmp.rollout(
+                self.ay[:,-1,:][:,None,:], 
+                self.ay[:,0,:][:,None,:], 
+                self.day[:,0,:][:,None,:], 
+                self.dday[:,0,:][:,None,:]
+            )
+
+            fig, axs = plt.subplots(self.num_envs, 4)
             fig.set_figwidth(3 / 3 * 1600/96)
             fig.set_figheight(self.num_envs / 4 * 1000/96)
             fig.tight_layout(pad=5.0)
@@ -116,8 +157,18 @@ class DMPObservationWrapper(gym.ObservationWrapper):
                     axs[i,j].set(xlabel = 'Time (s)')
                     axs[i,j].set(ylabel ='Position (m)')
 
+                axs[i,3].plot(self.t.cpu(), self.ay[i,:,0].cpu(), label="w", color='m')
+                axs[i,3].plot(self.t.cpu(), self.ay[i,:,1].cpu(), label="x", color='r')
+                axs[i,3].plot(self.t.cpu(), self.ay[i,:,2].cpu(), label="y", color='g')
+                axs[i,3].plot(self.t.cpu(), self.ay[i,:,3].cpu(), label="z", color='b')
+
+                axs[i,3].plot(self.t.cpu(), az[i,:,0].cpu(), label="w - Fit", color='k', linestyle=":")
+                axs[i,3].plot(self.t.cpu(), az[i,:,1].cpu(), label="x - Fit", color='k', linestyle=":")
+                axs[i,3].plot(self.t.cpu(), az[i,:,2].cpu(), label="y - Fit", color='k', linestyle=":")
+                axs[i,3].plot(self.t.cpu(), az[i,:,3].cpu(), label="z - Fit", color='k', linestyle=":")
             plt.show()
 
         old_obs['policy'] = self.new_obs
+        print("Done!")
         return old_obs
     

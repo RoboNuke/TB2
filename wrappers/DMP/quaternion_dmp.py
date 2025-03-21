@@ -20,14 +20,22 @@ class QuaternionDMP():
         self.num_envs = num_envs
         self.device = device
 
-        self.ws = torch.ones((self.num_envs, 3, self.nRBF), device = self.device)
-        self.rbfs = RBF(can_sys=self.cs, num_rbfs=self.nRBF)
+        self.ws = torch.ones((self.num_envs, self.nRBF, 4), device = self.device)
+        self.w_out = torch.ones((self.num_envs, self.nRBF, 3), device=self.device)
+        self.rbfs = RBF(can_sys=self.cs, num_rbfs=self.nRBF, device=device)
 
-        self.q = torch.zeros((self.num_envs, 4), device = self.device)
-        self.n = torch.zeros((self.num_envs, 3), device = self.device)
-        self.dn = torch.zeros((self.num_envs, 3), device = self.device)
-        self.gq = torch.zeros((self.num_envs, 4), device = self.device)
-
+        self.q = torch.zeros((self.num_envs, 1, 4), device = self.device)
+        self.n = torch.zeros_like(self.q)
+        self.dn = torch.zeros_like(self.n)
+        self.gq = torch.zeros_like(self.q)
+        self.goal = torch.zeros_like(self.q)
+        self.q0 = torch.zeros_like(self.q)
+    
+    @property
+    def w(self):
+        self.w_out = self.ws[:,:,1:]
+        return self.w_out
+    
     def cross(self, a, b):
         # a/b: (num_envs, timestep, 3)
         a1 = a[:,:,0]
@@ -42,105 +50,54 @@ class QuaternionDMP():
         cros[:,:,1] = a3 * b1 - a1 * b3
         cros[:,:,2] = a1 * b2 - a2 * b1
         return cros
-    
-    def singleCross(self, a, b):
-        # a/b: (num_envs, 3)
-        a1 = a[:,0]
-        a2 = a[:,1]
-        a3 = a[:,2]
-        b1 = b[:,0]
-        b2 = b[:,1]
-        b3 = b[:,2]
-
-        cros = torch.zeros_like(b)
-        cros[:,0] = a2 * b3 - a3 * b2
-        cros[:,1] = a3 * b1 - a1 * b3
-        cros[:,2] = a1 * b2 - a2 * b1
-        return cros
 
 
     def quatDiff(self, a, b):
         # quaternion multiplies a * conj(b)
         # a and b: (num_envs, timestep, 4) (w,x,y,z) ordering
-        #conj_b = torch.zeros_like(b)
+        
         conj_b = torch.clone(b)
-        if len(conj_b.size()) == 3:
-            conj_b[:,:,1:] *= -1
-            return self.multq(a, conj_b)    
-        else:
-            conj_b[:,1:] *= -1
-            return self.singleMultq(a, conj_b)
-
-
-    def wMultq(self, a, b):
-        delta = torch.zeros_like(b)
-        v1 = 0.0
-        u1 = a
-        v2 = b[:,0]
-        u2 = b[:,1:]
-        delta[:,0] = v1 * v2 - torch.sum(u1 * u2, dim=1)
-        delta[:,1:] = v1 * u2 + v2 * u1 + self.singleCross(u1, u2)
-        delta /= torch.linalg.norm(delta, dim=1)
-        return delta
-
-
-    def singleMultq(self, a, b):
-        delta = torch.zeros_like(b)
-        v1 = a[:,0]
-        u1 = a[:,1:]
-        v2 = b[:,0]
-        u2 = b[:,1:]
-        delta[:,0] = v1 * v2 - torch.sum(u1 * u2, dim=1)
-        delta[:,1:] = v1 * u2 + v2 * u1 + self.singleCross(u1, u2)
-        delta /= torch.linalg.norm(delta, dim=1)
-        return delta
+        conj_b[:,:,1:] *= -1
+        #print("Quat diff:", a,conj_b)
+        return self.multq(a, conj_b)    
 
     def multq(self, a, b):
         delta = torch.zeros_like(b)
         v2 = b[:,:,0]
         u2 = b[:,:,1:]
-        if len(a.size()) == 3:
-            v1 = a[:,:,0]
-            u1 = a[:,:,1:]
-            delta[:,:,0] = (v1 * v2) - torch.sum(u1*u2,dim=2)
-            delta[:,:,1:] = v1[:,:,None] * u2 + v2[:,:,None] * u1 + self.cross(u1, u2)
-        else:
-            v1 = a[:,0]
-            u1 = a[:,1:]
-            delta[:,:,0] = v1[:,None] * v2 - torch.sum(u1 * u2, dim=2)
-            delta[:,:,1:] = v1[:,None,None] * u2 + v2[:,:,None] * u1[:,None,:] + self.cross(u1[:,None,:], u2)
+        
+        v1 = a[:,:,0]
+        u1 = a[:,:,1:]
+        #print("Multq inputs")
+        #print(v1, v2)
+        #print(v2, u2)
+        delta[:,:,0] = (v1 * v2) - torch.sum(u1*u2,dim=2)
+        delta[:,:,1:] = v1[:,:,None] * u2 + v2[:,:,None] * u1 + self.cross(u1, u2)
         delta /= torch.linalg.norm(delta, dim=2)[:,:,None]
+        
         return delta
 
     def logq(self, a):
         # performs quaternion log on a 
         # a: (num_envs, timestep, 4) (w,x,y,z) q ordering
-        #print("a", a.size())
-        if len(a.size()) == 3:
-            log_out = torch.zeros((a.size()[0], a.size()[1], 3), device=self.device)
-            u_norm = torch.linalg.norm(a[:,:,1:], dim=2) 
-            #print(u_norm)
-            log_out[:,:,:] = torch.acos(a[:,:,0])[:,:,None] * a[:,:,1:] / u_norm[:,:,None]
-            log_out[u_norm < 1e-2,:] = torch.tensor([0,0,0], device=self.device, dtype=a.dtype)
-        else:
-            log_out = torch.zeros((a.size()[0], 3), device=self.device)
-            u_norm = torch.linalg.norm(a[:,1:], dim=1)
-            #print(u_norm)
-            log_out[:,:] = torch.acos(a[:,0])[:,None] * a[:,1:] / u_norm[:,None]
-            log_out[u_norm < 1e-6,:] = torch.tensor([0,0,0], device=self.device, dtype=a.dtype)
-
-        #print(log_out)
+        # returns (num_envs, timestep, 4) where w is zero always
+        
+        log_out = torch.zeros_like(a)
+        u_norm = torch.linalg.norm(a[:,:,1:], dim=2) 
+        log_out[:,:,1:] = torch.acos(a[:,:,0])[:,:,None] * a[:,:,1:] / u_norm[:,:,None]
+        log_out[u_norm < 1e-2] = torch.tensor([0,0,0,0], device=self.device, dtype=a.dtype)
         return log_out
     
     def expq(self, a):
+        # exp on quaternion a
+        # a: (num_envs, timesteps, 4) (w,x,y,z) q ordering
         exp_out = torch.zeros_like(a)
-        w_norm = torch.linalg.norm(a, dim=1)
-        #w_norm[w_norm > 3.14159] -= 3.14159
-        exp_out[:,0] = torch.cos(w_norm)
-        exp_out[:,1:] = torch.sin(w_norm) * a[:,1:] / w_norm
-        exp_out[w_norm < 1e-6,0] = 1.0
-        exp_out[w_norm < 1e-6,1:] = 0.0
-        #print("exp out size:", exp_out.size())
+        w_norm = torch.linalg.norm(a, dim=2)
+        exp_out[:,:,0] = torch.cos(w_norm)
+        #print("expq:", torch.sin(w_norm)[:,:,None].size(), a[:,:,1:].size(), exp_out[:,:,1:].size(), w_norm.size())
+        exp_out[:,:,1:] = torch.sin(w_norm)[:,:,None] * a[:,:,1:] / w_norm[:,:,None]
+        exp_out[w_norm < 1e-6] = torch.tensor([1,0,0,0], device=self.device, dtype=a.dtype)
+        
         return exp_out
 
     def learnWeightsCSDT(self, q, n, dn, t):
@@ -149,42 +106,32 @@ class QuaternionDMP():
         # n: angular velocity (quaternion with zero complex term) (num_envs, timestep, 4)
         # dn: angular acceleration trajectory (quaternion with zero complex term) (num_envs, timestep, 4)
         # t: time for each above point (timestep)
-
-        self.goal = q[:, -1, :]
+        #print(self.goal.size(), q.size())
+        self.goal[:,:,:] = q[:, -1, :][:,None,:]
         x = self.cs.rollout()
         
-        self.q0 = q[:, 0, :]
-
+        self.q0[:,:,:] = q[:, 0, :][:,None,:]
         rbMats = self.rbfs.eval(x) #(num_envs, direction, num_rbfs) 
-        #print(self.logq(self.quatDiff(self.goal, q)).size(), dn.size(), n.size())
+        
         fd = dn - self.ay * ( 2 * self.by * self.logq(self.quatDiff(self.goal, q)) - n)
-        #fd /= (2 * self.logq(self.quatDiff(self.goal, self.q0)))
-        #assert 1 == 0
-        #print((2 * self.logq(self.quatDiff(self.goal, self.q0)))[:,None,:])
-        print("Goal Term:", (2 * self.logq(self.quatDiff(self.goal, self.q0)))[:,None,:].size())
-
-        print("x term:", x.size())#, "\n", x)
-        s = x[None, :, None] * (2 * self.logq(self.quatDiff(self.goal, self.q0)))[:,None,:]
-        # top becomes (num_envs, timesteps, direction, weight)
-        print(s.size())
-        for env_idx in range(self.num_envs):
-            for i in range(self.nRBF):
-                for k in range(3):
-                    print(s.size())
-                    sm = s[env_idx,:,k]
-                    rb = rbMats[:, k]
-                    f = fd[env_idx, :, k]
-                    print(sm.size(), rb.size(), f.size())
-                    tt = torch.sum(sm * rb[None,:] * f)
-                    bt = torch.sum(sm * rb[None,:] * sm)
-                    self.ws[env_idx,k] = tt/bt
-                    #assert 1 ==0
+        
+        s = x[None, :, None] * (2 * self.logq(self.quatDiff(self.goal, self.q0)))
+        
+        top = torch.sum(  (s[:,:,None,:] * rbMats[None,:,:,None]) * fd[:,:,None,:], dim=1)
+        top[:,:,0] = 0
+        bot = torch.sum( s[:,:,None,:] * rbMats[None,:,:,None] * s[:,:,None,:], dim=1)
+        bot[:,:,0] = 1
+        
+        self.ws = top / bot
             
         
 
     def calcWPsi(self, x: float):
         thee = self.rbfs.eval(x) #(num_rbfs) 
-        top =  torch.sum(thee[None, None, :] * self.ws, dim=2)
+        #print("calcW:", thee[None,:,None].size(), self.ws.size())
+        top =  torch.sum(thee[None, :, None] * self.ws, dim=1)[:,None,:]
+        #print(top.size())
+        #top[:,0] *= 0.0
         bot = torch.sum(thee)
         return top / bot
     
@@ -192,18 +139,21 @@ class QuaternionDMP():
         ec = 1.0 / (1.0+error)
 
         x = self.cs.step(tau=tau, error_coupling = ec)
-        
-        F = 2*self.logq(self.quatDiff(self.goal, self.q)) * self.calcWPsi(x) * x 
-        
+        #print("before before:", self.logq(self.quatDiff(self.goal, self.q0)).size(), self.calcWPsi(x).size())
+        F = 2*self.logq(self.quatDiff(self.goal, self.q0)) * self.calcWPsi(x) * x 
+        #print("before:", self.dn.size(), self.logq(self.quatDiff(self.goal, self.q)).size(), F.size())
         self.dn = self.ay * ( 2*self.by * self.logq(self.quatDiff(self.goal, self.q)) - self.n) + F
-        
+        #print("here:", self.n, self.dn)
+        #print(self.n.size(), self.dn.size())
         self.n += self.dn * self.dt * ec / tau
-        self.q = self.wMultq(self.expq(self.n * self.dt / (2 * tau)), self.q)
-        self.q[self.q[:,0] < 0] *= -1
+        self.q = self.multq( self.expq(self.n * self.dt / (2 * tau)), self.q)
+        #self.q /= torch.linalg.norm(self.q, dim=2)
+        #self.q[self.q[:,:,0] < 0] *= -1
+        #print(self.q, "\t", torch.linalg.norm(self.q, dim=2))
         return self.q, self.n, self.dn
 
     def reset(self, goal, q: torch.tensor, n = None, dn = None):
-        self.q = q
+        self.q[:,:,:] = q
         if n is None:
             self.n = torch.zeros_like(self.q)
         else:
@@ -212,24 +162,24 @@ class QuaternionDMP():
             self.dn = torch.zeros_like(self.q)
         else:
             self.dn = dn
+            #print(self.dn.size(), dn.size())
         self.q0 = torch.clone(self.q)
-        self.goal = goal
+        self.goal[:,:,:] = goal
         self.cs.reset()
 
     def rollout(self, g, q0, n0=None, dn0=None, tau=1, scale=1):
         self.reset(g, q0, n0, dn0)
         t = 0.0
-        #print(self.dt)
-        ts = [0.0]
-        #print(f"Total Time:{self.cs.run_time * tau}")
         timesteps = int(self.cs.timesteps * tau)
-        z = torch.zeros((self.num_envs, timesteps+1, 4))
-        w = torch.zeros((self.num_envs, timesteps+1, 3))
-        dw = torch.zeros((self.num_envs, timesteps+1, 3))
-        #print(q0, n0, dn0)
-        z[:,0,:] = q0
-        w[:,0,:] = n0
-        dw[:,0,:] = dn0
+        z = torch.zeros((self.num_envs, timesteps+1, 4), device = self.device)
+        w = torch.zeros_like(z)
+        dw = torch.zeros_like(w)
+        ts = torch.zeros(timesteps+1, device = self.device)
+        
+        z[:,0,:][:,None,:] = self.q
+        w[:,0,:][:,None,:] = self.n
+        dw[:,0,:][:,None,:] = self.dn
+        ts[0] = t
 
         for it in range(timesteps):
             #t = np.log(self.cs.x) / -self.cs.ax
@@ -239,10 +189,10 @@ class QuaternionDMP():
             #print(self.q)
             #assert 1 == 0
             #print(self.q, "\t", torch.linalg.norm(self.q))
-            z[:,it+1, :] = self.q
-            w[:,it+1, :] = self.n
-            dw[:,it+1, :] = self.dn
-            ts.append(t)
+            z[:,it+1, :][:,None,:] = self.q
+            w[:,it+1, :][:,None,:] = self.n
+            dw[:,it+1, :][:,None,:] = self.dn
+            ts[it+1] = t
 
         return(ts, z, w, dw)
 
@@ -252,11 +202,11 @@ def pltqndn(fig, axs, t, data_ref, num_envs=1, names=['x', 'y', 'z', 'w'], color
         for j in range(len(names)):
             for i in range(len(data_ref)):
                 idx = j
-                if names[j] == 'w' and i > 0:
+                if 'w' in names[j] and i > 0:
                     continue
-                if i == 0 and names[j] != 'w':
+                if i == 0 and 'w' not in names[j]:
                     idx+=1
-                elif i == 0 and names[j] == 'w':
+                elif i == 0 and 'w' in names[j]:
                     idx = 0
                 #if names[j] in ['x','y','z']:
                 #    continue
@@ -279,10 +229,16 @@ if __name__=="__main__":
     import numpy as np
     from scipy.spatial.transform import Rotation
 
-    dt = 1/500
+    dt = 1/20
     tmax = 1.0
-        
-    dmp = QuaternionDMP(nRBF=10, betaY=25/4, dt=dt, cs=CS(ax=5, dt=dt))
+    num_envs = 2
+    dmp = QuaternionDMP(
+        nRBF=10, 
+        betaY=25/4, 
+        dt=dt, 
+        cs=CS(ax=1, dt=dt), 
+        num_envs=num_envs
+    )
 
     t = torch.linspace(start=0.0, end=tmax, steps= int(tmax/dt)+1 ) #/ tmax
     
@@ -291,45 +247,61 @@ if __name__=="__main__":
     beta = torch.tensor(3.14159/2)
     omega = torch.tensor(5.0)
 
-    q = torch.zeros(1, len(t), 4)
-    n = torch.zeros(1, len(t), 3)
+    q = torch.zeros(num_envs, len(t), 4)
+    n = torch.zeros(num_envs, len(t), 4)
     dn = torch.zeros_like(n)
 
-    """
-    q[:,:,1] = torch.sin(of* 10*t) #+ torch.cos(of * 3 *t) # set the "x" component of the quaternion
 
-    # normalize the quaternion
-    q[:, :, 0] = torch.sqrt(1 - q[:,:,1] ** 2)
-    
-    assert torch.all(torch.linalg.norm(q, dim=2) - 1 < 1e-6), "q not normalized"
-    # fill n with dq/dt
-    n[:,:,1] = of * 10 * torch.cos(of * 10 * t) #- of * 3 * torch.sin(of*3*t) 
-    #calculate actual n
-    n = 2 * dmp.quatDiff(n, q)
-    print(n)
-    # get dn with similar procedure
-    dn[:,:,1] = -100* of**2 * torch.sin(of*10*t) #- 9 * of**2 * torch.cos(of*3*t) 
-    #dn[:,:,0] = - dn[:,:,0]
-    dn = 2 * dmp.quatDiff(dn, q)
     """
     q[:,:,0] = torch.cos(beta/2.0)
     q[:,:,1] = torch.sin(beta/2.0) * torch.cos(omega * t) 
     q[:,:,2] = torch.sin(beta/2.0) * torch.sin(omega * t) 
     q[:,:,3] = 0.0
 
-    n[:,:,0] = -omega * torch.sin(beta) * torch.sin(omega * t) # / (omega**2 + 1 - 2 * torch.cos(beta))
+    n[:,:,0] = -omega * torch.sin(beta) * torch.sin(omega * t)  #/ (omega**2 + 1 - 2 * torch.cos(beta))
     n[:,:,1] = omega * torch.sin(beta) * torch.cos(omega * t) #/ (omega**2 + 1 - 2 * torch.cos(beta))
     n[:,:,2] = omega * (torch.cos(beta)-1) #/ (omega**2 + 1 - 2 * torch.cos(beta))
     
 
-    dn[:,:,0] = - (omega**2) * torch.sin(beta) * torch.cos(omega * t) 
-    dn[:,:,1] = - (omega**2) * torch.sin(beta) * torch.sin(omega * t) 
+    dn[:,:,0] = - (omega**2) * torch.sin(beta) * torch.cos(omega * t) #/ (omega**2 + 1 - 2 * torch.cos(beta))
+    dn[:,:,1] = - (omega**2) * torch.sin(beta) * torch.sin(omega * t) #/ (omega**2 + 1 - 2 * torch.cos(beta))
     dn[:,:,2] = 0.0
     #print(n[:,:,0])
     #assert torch.all(n[:,:,0] < 1e-6), "Multiplaction not correct"
     #assert torch.all(dn[:,:,0] < 1e-6), 'accel mujlt not correct'
-    
     #t *= tmax
+    """
+
+
+    a = 1
+    b = -2
+    c = 3
+    d = -4
+    scaling_factor = 10
+    for i in range(num_envs):
+        q[i,0,0] = 1 # we start at unit quaternion
+        #print("Init t:", q)
+        # define the angular velocity
+        n[i:,:,0] = 0.0 
+        n[i,:,1] = scaling_factor*(torch.sin(a * t) + torch.cos(b * t))
+        n[i,:,2] = scaling_factor * (torch.sin(c * t) + torch.cos(d * t))
+        n[i,:,3] = 0.0
+
+        # define angular acceleration
+        dn[i,:,0] = 0.0
+        dn[i,:,1] = scaling_factor*a * torch.cos(a * t) - scaling_factor * b * torch.sin(b * t)
+        dn[i,:,2] = scaling_factor * (c * torch.cos(c * t) - d * torch.sin(d * t))
+        dn[i,:,3] = 0
+
+    # numerical integration to get the quaternion positions
+        dt = t[1] - t[0]
+        for k, ti in enumerate(t[1:]):
+            #print("i:", i, ti)
+            #print("\t1) ", n[:,i,:][:,None,:] * dt / 2)
+            #print("\t2) ", dmp.expq(n[:,i,:][:,None,:] * dt / 2), q[:,i-1,:][:,None,:])
+            q[i,k+1,:] = dmp.multq( dmp.expq(n[i,k,:][None,None,:] * dt / 2), q[i,k,:][None,None,:])
+            #print("\t3) ", q[:,i,:])
+
 
     fig, axs = plt.subplots(3, 1)
     fig.set_figwidth(800/96)
@@ -345,16 +317,18 @@ if __name__=="__main__":
     scale =1
     g = q[:,-1,:] * scale
     
+    ts, z, w, dw = dmp.rollout(g[:,None,:], q[:,0,:][:,None,:], n[:,0,:][:,None,:], dn[:,0,:][:,None,:], tau, scale)
     
-    ts, z, w, dw = dmp.rollout(g, q[:,0,:], n[:,0,:]*0.0, dn[:,0,:]*0.0, tau, scale)
-    
-    print(z.size(), w.size(), dw.size())
+    #print(z.size(), w.size(), dw.size())
     #for i in [0,1,2,3]:
     #    fig = plt.figure(2)
     #    plt.plot(ts, z[0,:,i], 'k')
     #    plt.plot(t, q[0,:,i], 'r')
     #    plt.show()
-    fig, axs = pltqndn(fig, axs, ts, data_ref=[z, w, dw], colors=['r:','g:' ,'b:','m-']) #colors=['k-' for i in range(4)]) #
+    fig, axs = pltqndn(fig, axs, ts, data_ref=[z, w, dw],
+                       names=["x - Learned", "y - Learned", "z - Learned", "w - Learned"],
+                        #colors=['r:','g:' ,'b:','m:']) 
+                        colors=['k:' for i in range(4)]) #
     handles, labels = axs[0].get_legend_handles_labels()
     #labels[4] = 'Est'
     #fig.legend(handles[:5], labels[:5])
@@ -364,9 +338,17 @@ if __name__=="__main__":
     #axs[1].plot(t, dy1, 'g')
     #plotSub(axs[2], t, ts, ddy, ddz, "Accel DMP", "Acceleration")
     #axs[2].plot(t, ddy1, 'g')
-    plt.xlabel("time (s)")
+    for axis in axs:
+        axis.set(xlabel = "time (s)")
+    axs[0].set_title("Quaternion")
+    axs[0].set(ylabel="Component Value (rad)")
+    axs[1].set_title("Angular Velocity")
+    axs[1].set(ylabel="Component Value (rad/sec)")
+    axs[2].set_title("Angular Acceleration")
+    axs[2].set(ylabel="Component Value (rad/sec^2)")
 
-    #plt.legend(['Noisy Function', 'Learned Trajectory', 'Original Function'])
+    plt.legend()
+    fig.suptitle("Quaternion DMPs fixed <1 day of debugging", fontsize=20)
     plt.show()
     """
     for j in range(10):

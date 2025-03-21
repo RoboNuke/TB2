@@ -30,7 +30,7 @@ def ee_traj(
         #print(env.scene['ee_imu'].data)
         data = asdict(env.scene['ee_imu'].data)
     except RuntimeError:
-        return torch.zeros((env.num_envs, 19*env.cfg.decimation), device=env.device)
+        return torch.zeros((env.num_envs, 19*env.cfg.decimation), device=env.device) # 7 pose, 6 vel, 6 acc
     
     for name in names:
         dim = 4 if "quat" in name else 3

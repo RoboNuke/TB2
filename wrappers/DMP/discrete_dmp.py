@@ -290,9 +290,9 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
     # define 3-D trajectories
     dmp = DiscreteDMP(
         nRBF=10, 
-        betaY=25/4.0, 
+        betaY=50/4.0, 
         dt=dt, 
-        cs=CS(ax=5, dt=dt/tmax), 
+        cs=CS(ax=2, dt=dt/tmax), 
         num_envs=num_envs, 
         num_dims=num_dims
     )
@@ -530,7 +530,7 @@ if __name__=="__main__":
     """
     #assert 1 == 0
     t_vals = [k * 10 for k in range(2, 101)]
-    for t_val in [500]:#[20, 30, 50, 200, 500, t_vals[-1]]:
+    for t_val in [20, 500]:#[20, 30, 50, 200, 500, t_vals[-1]]:
         test(num_dims=3,num_envs=4, tmax=0.5, dt=0.5/t_val,fp="/home/hunter/Pictures/dmp_counts")
         assert 1 == 0
     for i in [1,4]:

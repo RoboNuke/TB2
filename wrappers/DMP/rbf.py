@@ -17,6 +17,7 @@ class RBF():
         if type(x) == float:
             dx = x - self.cs
         else:
+            #print(x.device, self.cs.device)
             dx = x[:,None] - self.cs[None, :]
         return torch.exp(-self.hs * (dx *dx))
     
