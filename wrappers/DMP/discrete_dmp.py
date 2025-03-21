@@ -37,9 +37,9 @@ class DiscreteDMP():
 
     def learnWeightsCSDT(self, y, dy, ddy, t):
         # expected input
-        # y: position trajectory (num_envs, num_dims, timestep)
-        # dy: velocity trajectory (num_envs, num_dims, timestep)
-        # ddy: acceleration trajectory (num_envs, num_dims, timestep)
+        # y: position trajectory (num_envs, timestep, num_dims )
+        # dy: velocity trajectory (num_envs, timestep, num_dims )
+        # ddy: acceleration trajectory (num_envs, timestep, num_dims )
         # t: time for each above point (timestep)
         # points are assumed to be pl
 
@@ -48,42 +48,37 @@ class DiscreteDMP():
         
         self.y0 = y[:,0,:].clone()
         
-        rbMats = self.rbfs.eval(x) #[self.RBFs[i].theeMat(x) for i in range(self.nRBF)]
-        #print("mats:", rbMats)
-        #fd = ddy - self.ay * (self.by * (self.goal - y) - dy)
-        #print(ddy/self.ay)
-        #print((ddy/self.ay + dy) / self.by)
-        a = (ddy/self.ay) + dy#) / self.ay 
-        #print( (self.goal - self.y0).size(), x.size(), y.size(), self.goal.size())
+        rbMats = self.rbfs.eval(x) 
+        
+        a = (ddy/self.ay) + dy
         b = (self.goal - self.y0)[:,None,:] * x[None,:,None] + y - self.goal[:,None,:]
-        #print("a,b:", a.size(), b.size())
-        #fd = (ddy/self.ay + dy ) / self.by + (self.goal - self.y0) * x + y - self.goal
+        
         fd = a/self.by + b
 
         #print("fd:", fd)
-        s = x#[None,:,None] #* (self.goal - self.y0)[:,None,:]
-        #print(type(s), type(rbMats), type(fd))
-        #print(s.size(), rbMats.size(), fd.size())
-        top = torch.sum(  (s[:,None] * rbMats)[None,:,:,None] * fd[:,:,None,:], dim=1)
-        #print("top:", top.size())
-        bot = torch.sum( s[:,None] * rbMats * s[:,None], dim=0)
-        #print("top:", top.size())
-        #print("bot:", bot.size())
-        self.ws = top / bot[None,:,None]
-        #print("ws pre:", self.ws)
-        #print(self.goal.size(), self.y0.size())
-        #print(self.goal, type(y))
-        #print("y shape:", y.shape)
-        #print("w shape:", self.ws.size())
+        s = x[None,:,None] #* (self.goal - self.y0)[:,None,:]
+        #print(x[None,:,None].size(), s.size())
+        
+        #print(rbMats.size())
+        #print(s[:,:,None,:].size(), rbMats[None,:,:,None].size())
+        #print( (s[:,:,None,:] * rbMats[None,:,:,None]).size(), fd[:,:,None,:].size())
+        #top = torch.sum(  (s[:,None] * rbMats)[None,:,:,None] * fd[:,:,None,:], dim=1)
+        top = torch.sum(  (s[:,:,None,:] * rbMats[None,:,:,None]) * fd[:,:,None,:], dim=1)
+        #bot = torch.sum( s[:,None] * rbMats * s[:,None], dim=0)
+        bot = torch.sum( s[:,:,None,:] * rbMats[None,:,:,None] * s[:,:,None,:], dim=1)
+        
+        #print(top.size(), bot.size())
+        #self.ws = top / bot[None,:,None]
+        #print(self.ws.size())
+        self.ws = top / bot
 
-        delta = self.goal[:,None,:]  - self.y0[:,None,:]
-        delta = delta.repeat( (1,self.nRBF,1))
-        delta_idx = delta > 0.00001
-        self.ws[delta_idx] /= delta[delta_idx] 
-        #if abs(delta) > 0.0001:
-        #    self.ws /= delta
-        #print("ws post:", self.ws)
-        #self.ws[0] = 0.0
+        #print(self.ws.size())
+
+        #delta = (self.goal[:,None,:]  - self.y0[:,None,:])
+        #delta = delta.repeat( (1,self.nRBF,1))
+        #delta_idx = torch.logical_or(delta > 0.0001, delta < 0.0001)
+        #self.ws[delta_idx] /= delta[delta_idx] 
+        #self.ws /= delta
 
     def learnWeights(self,y, ydot, ydotdot, tt):
         self.goal = y[-1]
@@ -291,7 +286,7 @@ def single_dim_test():
 
 
 def test(num_dims = 1, num_envs = 1, noise = 0.1,
-         tau=1.0, scale=1.0, tmax=1.0, dt=1/50):
+         tau=1.0, scale=1.0, tmax=1.0, dt=1/50, fp="/home/hunter/Pictures/profiles"):
     # define 3-D trajectories
     dmp = DiscreteDMP(
         nRBF=10, 
@@ -378,10 +373,11 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
         axs.set(ylabel ='Position (m)')
 
     plt.legend()
-    plt.show()
+    plt.savefig(f"{fp}/fit_performance_{int(tmax/dt)}.png")
+    #plt.show()
 
 
-def data_sensitivity_test(plot=True):
+def data_sensitivity_test(plot=True, fp="/home/hunter/Pictures/profiles", max_t=101, nRBFs=10):
     # straight line, small increase, s-curve, y0=g curve, up curve, down curve
     # define 3-D trajectories
     sco = torch.tensor([[0,10.0, 5.0],[0, 2.5, 5]])
@@ -395,13 +391,13 @@ def data_sensitivity_test(plot=True):
     noise = 0.1
     num_envs = 2
     num_dims = 3
-    max_t = 101
     t_vals = [k * 10 for k in range(2,max_t)]
     dts = [1/(10*k-1) for k in range(2,max_t)]
+    
     error = torch.zeros((len(dts), num_envs, num_dims))
     for dt_idx, dt in enumerate(dts):
         dmp = DiscreteDMP(
-            nRBF=10, 
+            nRBF=nRBFs, 
             betaY=25/4.0, 
             dt=dt, 
             cs=CS(ax=5, dt=dt/tmax), 
@@ -439,66 +435,104 @@ def data_sensitivity_test(plot=True):
         error[dt_idx,:,:] = torch.sum((y - z) * (y - z), 1) / t_vals[dt_idx] # sum squred error
         #error[dt_idx,0, 2] *= 0
         
-        if t_vals[dt_idx] in [20, 30, 50, 200, 500, t_vals[-1]]:
-            fig, axs = plt.subplots(num_envs, num_dims)
-            fig.set_figwidth(num_dims / 3 * 1600/96)
-            fig.set_figheight(num_envs / 4 * 1000/96)
-            fig.tight_layout(pad=5.0)
-            for i in range(num_envs):
-                for j in range(num_dims):
-                    axs[i,j].plot(t, y[i,:,j], label="Original")
-                    axs[i,j].plot(ts, z[i,:,j], 'r--', label="Fit DMP")
-                    axs[i,j].set_title(names[i][j])
-                    axs[i,j].set(xlabel = '# Data Points')
-                    axs[i,j].set(ylabel ='Sum Squared Error')
-            fig.suptitle(f"Fit at {t_vals[dt_idx]}",  fontsize=20)
-            plt.legend()
-            plt.savefig(f"/home/hunter/Pictures/profiles/{t_vals[dt_idx]}_fit.png")
-            #plt.show()
-        
-    # plot type error + average error
-    fig, axs = plt.subplots(num_envs, num_dims)
-    fig.set_figwidth(num_dims / 3 * 1600/96)
-    fig.set_figheight(num_envs / 4 * 1000/96)
-    fig.tight_layout(pad=5.0)
+        if plot:
+            if t_vals[dt_idx] in [20, 30, 50, 200, 500, t_vals[-1]]:
+                fig, axs = plt.subplots(num_envs, num_dims)
+                fig.set_figwidth(num_dims / 3 * 1600/96)
+                fig.set_figheight(num_envs / 4 * 1000/96)
+                fig.tight_layout(pad=5.0)
+                for i in range(num_envs):
+                    for j in range(num_dims):
+                        axs[i,j].plot(t, y[i,:,j], label="Original")
+                        axs[i,j].plot(ts, z[i,:,j], 'r--', label="Fit DMP")
+                        axs[i,j].set_title(names[i][j])
+                        axs[i,j].set(xlabel = '# Data Points')
+                        axs[i,j].set(ylabel ='Sum Squared Error')
+                fig.suptitle(f"Fit at {t_vals[dt_idx]} Data Points",  fontsize=20)
+                plt.legend()
+                plt.savefig(f"{fp}/{t_vals[dt_idx]}_fit.png")
+                #plt.show()
 
-    for dim_idx in range(num_dims):
-        for env_idx in range(num_envs):
-            axs[env_idx,dim_idx].plot(t_vals, error[:,env_idx, dim_idx])
-            axs[env_idx, dim_idx].set_title(names[env_idx][dim_idx],  fontsize=20)
-            axs[env_idx, dim_idx].set(xlabel = '# Data Points')
-            axs[env_idx, dim_idx].set(ylabel ='Sum Squared Error')
-    plt.savefig(f"/home/hunter/Pictures/profiles/individual_error.png")
+    if plot:   
+        # plot type error + average error
+        fig, axs = plt.subplots(num_envs, num_dims)
+        fig.set_figwidth(num_dims / 3 * 1600/96)
+        fig.set_figheight(num_envs / 4 * 1000/96)
+        fig.tight_layout(pad=5.0)
+        
+        for dim_idx in range(num_dims):
+            for env_idx in range(num_envs):
+                axs[env_idx,dim_idx].plot(t_vals, error[:,env_idx, dim_idx])
+                axs[env_idx, dim_idx].set_title(names[env_idx][dim_idx],  fontsize=20)
+                axs[env_idx, dim_idx].set(xlabel = '# Data Points')
+                axs[env_idx, dim_idx].set(ylabel ='Sum Squared Error')
+        plt.savefig(f"{fp}/individual_error.png")
+    
+    plot_set = [50]
 
     tot_error = [torch.sum(error[i,:,:]) for i in range(len(t_vals))]
-    fig2, ax2 = plt.subplots()
-    ax2.plot(t_vals, tot_error)
-    ax2.set_title("Total Error")
-    ax2.set(xlabel = "# Data Points")
-    ax2.set(ylabel = "Sum Squared Error")
-    plt.savefig(f"/home/hunter/Pictures/profiles/total_error.png")
-    #plt.show()
+    if plot:
+        fig2, ax2 = plt.subplots()
+        ax2.plot(t_vals, tot_error)
+        ax2.set_title("Total Error")
+        ax2.set(xlabel = "# Data Points")
+        ax2.set(ylabel = "Sum Squared Error")
+        for val in plot_set:
+            ax2.plot([val,val],[0,max(tot_error)], 'k--', label=str(val) + " Data Pts")
+        ax2.legend()
+        plt.savefig(f"{fp}/total_error.png")
+        #plt.show()
 
-    fig3, ax3 = plt.subplots()
-    for dim_idx in range(num_dims):
-        for env_idx in range(num_envs):
-            ax3.plot(t_vals, error[:,env_idx, dim_idx], label=names[env_idx][dim_idx])
-    ax3.set_title("Individual Error")
-    ax3.set(xlabel = "# Data Points")
-    ax3.set(ylabel = "Sum Squared Error")
-    ax3.legend()
-    plt.savefig(f"/home/hunter/Pictures/profiles/individual_overlapping.png")
-        
+        fig3, ax3 = plt.subplots()
+        for dim_idx in range(num_dims):
+            for env_idx in range(num_envs):
+                ax3.plot(t_vals, error[:,env_idx, dim_idx], label=names[env_idx][dim_idx])
+        ax3.set_title("Individual Error")
+        ax3.set(xlabel = "# Data Points")
+        ax3.set(ylabel = "Sum Squared Error")
+        for val in plot_set:
+            ax3.plot([val,val],[0,max(tot_error)], 'k--', label=str(val) + " Data Pts")
+        ax3.legend()
+        plt.savefig(f"{fp}/individual_overlapping.png")
+    
+    return t_vals, tot_error
 
 
 
 if __name__=="__main__":
     #single_dim_test()
     #multi_dim_test()
-    #data_sensitivity_test()
+    #data_sensitivity_test(
+    #    plot=True, 
+    #    fp="/home/hunter/Pictures/dmp_counts",
+    #    max_t=101
+    #)
+    """
+    fig2, ax2 = plt.subplots()
+    ax2.set_title("Total Error as function of RBFs")
+    ax2.set(xlabel = "# Data Points")
+    ax2.set(ylabel = "Sum Squared Error")
+    plot_set = [50]
+    tot_error_max = -1
+    for nRBFs in [5,10,20,30,50,100]:
+        t_vals, tot_error = data_sensitivity_test(
+            plot=False, 
+            fp="/home/hunter/Pictures/dmp_counts",
+            max_t=21,
+            nRBFs=nRBFs
+        )
+        ax2.plot(t_vals, tot_error, label=f"{nRBFs} RBFs")
+        tot_error_max = max(tot_error_max, max(tot_error))
+    for val in plot_set:
+        ax2.plot([val,val],[0,tot_error_max], 'k--', label=str(val) + " Data Pts")
+    ax2.legend()
+    plt.savefig(f"/home/hunter/Pictures/dmp_counts/total_error_comp.png")"
+    """
     #assert 1 == 0
-    test(num_dims=3,num_envs=4, tmax=0.5, dt=0.5/50)
-    assert 1 == 0
+    t_vals = [k * 10 for k in range(2, 101)]
+    for t_val in [500]:#[20, 30, 50, 200, 500, t_vals[-1]]:
+        test(num_dims=3,num_envs=4, tmax=0.5, dt=0.5/t_val,fp="/home/hunter/Pictures/dmp_counts")
+        assert 1 == 0
     for i in [1,4]:
         for j in [1,3]:
             test(num_dims=j,num_envs=i)
