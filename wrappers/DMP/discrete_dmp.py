@@ -290,9 +290,9 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
     # define 3-D trajectories
     dmp = DiscreteDMP(
         nRBF=10, 
-        betaY=50/4.0, 
+        betaY=25/4.0, 
         dt=dt, 
-        cs=CS(ax=2, dt=dt/tmax), 
+        cs=CS(ax=5, dt=dt/tmax), 
         num_envs=num_envs, 
         num_dims=num_dims
     )
@@ -373,8 +373,8 @@ def test(num_dims = 1, num_envs = 1, noise = 0.1,
         axs.set(ylabel ='Position (m)')
 
     plt.legend()
-    plt.savefig(f"{fp}/fit_performance_{int(tmax/dt)}.png")
-    #plt.show()
+    #plt.savefig(f"{fp}/fit_performance_{int(tmax/dt)}.png")
+    plt.show()
 
 
 def data_sensitivity_test(plot=True, fp="/home/hunter/Pictures/profiles", max_t=101, nRBFs=10):

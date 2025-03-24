@@ -100,7 +100,40 @@ class QuaternionDMP():
         
         return exp_out
 
+    def quatMinus(self, a, b):
+        return 2*self.logq(self.quatDiff(a, b))
+    
     def learnWeightsCSDT(self, q, n, dn, t):
+        # expected input
+        # q: quaternion trajectory (num_envs, timestep, 4)
+        # n: angular velocity (quaternion with zero complex term) (num_envs, timestep, 4)
+        # dn: angular acceleration trajectory (quaternion with zero complex term) (num_envs, timestep, 4)
+        # t: time for each above point (timestep)
+        #print(self.goal.size(), q.size())
+        #return self.learnWeightsCSDT2(q,n,dn,t)
+        self.goal[:,:,:] = q[:, -1, :][:,None,:]
+        #print("goal:", self.goal)
+        x = self.cs.rollout()
+        #print("x:", x)
+        self.q0[:,:,:] = q[:, 0, :][:,None,:]
+        #print("q0:", self.q0)
+        rbMats = self.rbfs.eval(x) #(num_envs, direction, num_rbfs) 
+        #print("rbMats:", rbMats)
+        fd = dn - self.ay * ( 2 * self.by * self.logq(self.quatDiff(self.goal, q)) - n)
+        #print("fd:", fd)
+        s = x[None, :, None] * (2 * self.logq(self.quatDiff(self.goal, self.q0)))
+        #print("s:", s)
+        top = torch.sum(  (s[:,:,None,:] * rbMats[None,:,:,None]) * fd[:,:,None,:], dim=1)
+        #print("top:", top)
+        top[:,:,0] = 0
+        bot = torch.sum( s[:,:,None,:] * rbMats[None,:,:,None] * s[:,:,None,:], dim=1)
+        #print("bot:", bot)
+        bot += 1e-6
+        bot[:,:,0] = 1
+        
+        self.ws = top / bot
+
+    def learnWeightsCSDT2(self, q, n, dn, t):
         # expected input
         # q: quaternion trajectory (num_envs, timestep, 4)
         # n: angular velocity (quaternion with zero complex term) (num_envs, timestep, 4)
@@ -113,25 +146,38 @@ class QuaternionDMP():
         self.q0[:,:,:] = q[:, 0, :][:,None,:]
         rbMats = self.rbfs.eval(x) #(num_envs, direction, num_rbfs) 
         
-        fd = dn - self.ay * ( 2 * self.by * self.logq(self.quatDiff(self.goal, q)) - n)
+        gq0_dist = self.quatMinus(self.goal, self.q0)#(2 * self.logq(self.quatDiff(self.goal, self.q0)))
+
+        a = (dn/self.ay) + n
+        print(a.size())
+        print(gq0_dist.size(), x[None,:,None].size(), self.quatMinus(self.goal, q).size())
+        b = self.quatMinus(self.goal, q) - gq0_dist * x[None,:,None]   #2 * self.logq(self.quatDiff(self.goal, q))
+        print(b.size())
+        fd = a/self.by - b
+        print(fd[0,:5,1])
+
+
+        #fd = dn - self.ay * ( 2 * self.by * self.logq(self.quatDiff(self.goal, q)) - n)
         
-        s = x[None, :, None] * (2 * self.logq(self.quatDiff(self.goal, self.q0)))
+        s = x[None, :, None] #* gq0_dist
         
+        print(s.size(), rbMats.size(), fd.size())
+        print(s[:,:,None,:].size(), rbMats[None,:,:,None].size(), fd[:,:,None,:].size())
         top = torch.sum(  (s[:,:,None,:] * rbMats[None,:,:,None]) * fd[:,:,None,:], dim=1)
         top[:,:,0] = 0
         bot = torch.sum( s[:,:,None,:] * rbMats[None,:,:,None] * s[:,:,None,:], dim=1)
         bot[:,:,0] = 1
         
         self.ws = top / bot
+        print(self.w)
             
         
 
     def calcWPsi(self, x: float):
-        thee = self.rbfs.eval(x) #(num_rbfs) 
-        #print("calcW:", thee[None,:,None].size(), self.ws.size())
+        thee = self.rbfs.eval(x)
+        
         top =  torch.sum(thee[None, :, None] * self.ws, dim=1)[:,None,:]
-        #print(top.size())
-        #top[:,0] *= 0.0
+        
         bot = torch.sum(thee)
         return top / bot
     
@@ -139,17 +185,17 @@ class QuaternionDMP():
         ec = 1.0 / (1.0+error)
 
         x = self.cs.step(tau=tau, error_coupling = ec)
-        #print("before before:", self.logq(self.quatDiff(self.goal, self.q0)).size(), self.calcWPsi(x).size())
-        F = 2*self.logq(self.quatDiff(self.goal, self.q0)) * self.calcWPsi(x) * x 
-        #print("before:", self.dn.size(), self.logq(self.quatDiff(self.goal, self.q)).size(), F.size())
+        
+        F = self.quatMinus(self.goal, self.q0) * self.calcWPsi(x) * x 
+        #F = self.calcWPsi(x) * x
+        
         self.dn = self.ay * ( 2*self.by * self.logq(self.quatDiff(self.goal, self.q)) - self.n) + F
-        #print("here:", self.n, self.dn)
-        #print(self.n.size(), self.dn.size())
+        #self.dn = self.ay * ( self.by * (self.quatMinus(self.goal, self.q) - self.quatMinus(self.goal, self.q0) * x + F) - self.n)
+        #self.ddy = self.ay * (self.by * (self.goal - self.y - (self.goal - self.y0) * x + F) - self.dy)
+
         self.n += self.dn * self.dt * ec / tau
         self.q = self.multq( self.expq(self.n * self.dt / (2 * tau)), self.q)
-        #self.q /= torch.linalg.norm(self.q, dim=2)
-        #self.q[self.q[:,:,0] < 0] *= -1
-        #print(self.q, "\t", torch.linalg.norm(self.q, dim=2))
+        
         return self.q, self.n, self.dn
 
     def reset(self, goal, q: torch.tensor, n = None, dn = None):
@@ -229,14 +275,14 @@ if __name__=="__main__":
     import numpy as np
     from scipy.spatial.transform import Rotation
 
-    dt = 1/20
+    dt = 1/500
     tmax = 1.0
     num_envs = 2
     dmp = QuaternionDMP(
         nRBF=10, 
-        betaY=25/4, 
+        betaY=6/4, 
         dt=dt, 
-        cs=CS(ax=1, dt=dt), 
+        cs=CS(ax=2, dt=dt), 
         num_envs=num_envs
     )
 

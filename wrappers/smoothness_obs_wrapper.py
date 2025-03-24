@@ -25,6 +25,7 @@ class SmoothnessObservationWrapper(gym.Wrapper):
         self.old_acc = None #torch.zeros_like(self.agent.robot.qacc)
     
     def reset(self, **kwargs):
+        #print("\n\nSmoothness reset called\n\n")
         obs, info = self.env.reset(**kwargs)
         info['smoothness'] = self.obs
         for k in self.obs.keys():

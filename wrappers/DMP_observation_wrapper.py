@@ -23,13 +23,15 @@ class DMPObservationWrapper(gym.ObservationWrapper):
             num_weights=10, 
             fit_force_data=False,
             sim_dt = 0.01,
-            update_dt = 0.1
+            update_dt = 0.1,
+            save_fit = False
         )->None:
         #self.unwrapped = env
         super().__init__(env)
 
         self.num_weights = num_weights
         self.fit_ft = fit_force_data
+        self.save_fit = True
         
         self.display_fit = True
         # calculating t values is tricky, I assume
@@ -42,7 +44,7 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         self.dt = self.sim_dt / self.update_dt
         self.dec = int(self.update_dt / self.sim_dt)
 
-        old_shape = self.observation_space['policy'].shape[1]
+        #old_shape = self.observation_space['policy'].shape[1]
         new_dim = self.num_weights * 6 #3 * 1 + old_shape - 6 * self.dec * 3 - self.dec
         #print("old:", old_shape, "new:", new_dim)
         self.observation_space['policy'] = Box(low = -np.inf, high= np.inf, shape=(self.num_envs, new_dim))
@@ -72,14 +74,14 @@ class DMPObservationWrapper(gym.ObservationWrapper):
 
         # define the DMPs
         self.cs = CS(
-            ax=2, 
+            ax=2.5, 
             dt=self.dt, 
             device=self.device
         )
 
         self.pos_dmp = DiscreteDMP(
             nRBF=self.num_weights, 
-            betaY=50/4.0, 
+            betaY=12.5/4.0, 
             dt=self.dt, 
             cs=self.cs, 
             num_envs=self.num_envs, 
@@ -104,6 +106,12 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         # our new obs (num_weights * dim_per_(ang/pos) * (ang + pos))
         # current last mult is 1 because I'm not considering angular anything
         self.new_obs = torch.zeros( (self.num_envs, new_dim), device=self.device)
+        if self.save_fit or self.display_fit:
+            self.fig, self.axs = plt.subplots(self.num_envs, 4)
+            self.fig.set_figwidth(3 / 3 * 1600/96)
+            self.fig.set_figheight(self.num_envs / 4 * 1000/96)
+            self.fig.tight_layout(pad=5.0)
+            self.start_time = 0.0
 
 
 
@@ -126,49 +134,76 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         #print(self.y[0,:,0])
         self.pos_dmp.learnWeightsCSDT(self.y, self.dy, self.ddy, self.t)
         self.ang_dmp.learnWeightsCSDT(self.ay, self.day, self.dday, self.t)
-        print(self.ay)
+        #print(self.ay)
+        #print(torch.linalg.norm(self.ay,dim=2))
         self.new_obs[:, :(self.num_weights * 3) ] = self.pos_dmp.ws.view(self.num_envs, self.num_weights * 3)
         self.new_obs[:, (self.num_weights * 3):] = self.ang_dmp.w.reshape(self.num_envs, self.num_weights * 3) 
-        print(self.new_obs)
+        #print(self.new_obs)
 
         # move final obs to init position
         for i in range(len(self.unpack_list)):
             var_name, var_ref = self.unpack_list[i]
             var_ref[:,0,:] = var_ref[:,-1,:]
 
-        if self.display_fit:
-            ts, z, dz, ddz = self.pos_dmp.rollout(self.y[:,-1,:], self.y[:,0,:], self.dy[:,0,:], self.ddy[:,0,:])
+        if (self.save_fit or self.display_fit) and self.start_time < 4.9:
+            ts, z, dz, ddz = self.pos_dmp.rollout(
+                self.y[:,-1,:], 
+                self.y[:,0,:], 
+                self.dy[:,0,:], 
+                self.ddy[:,0,:]
+            )
             ts, az, daz, ddaz = self.ang_dmp.rollout(
                 self.ay[:,-1,:][:,None,:], 
                 self.ay[:,0,:][:,None,:], 
                 self.day[:,0,:][:,None,:], 
                 self.dday[:,0,:][:,None,:]
             )
-
-            fig, axs = plt.subplots(self.num_envs, 4)
-            fig.set_figwidth(3 / 3 * 1600/96)
-            fig.set_figheight(self.num_envs / 4 * 1000/96)
-            fig.tight_layout(pad=5.0)
+            
+            ts += self.start_time
             for i in range(self.num_envs):
                 for j in range(3):
-                    axs[i,j].plot(self.t.cpu(), self.y[i,:,j].cpu(), label="Original")
-                    axs[i,j].plot(ts.cpu()*0.1, z[i,:,j].cpu(), 'r--', label="Fit DMP")
-                    axs[i,j].set_title(f"DMP (env={i}, dim={j})",  fontsize=20)
-                    axs[i,j].set(xlabel = 'Time (s)')
-                    axs[i,j].set(ylabel ='Position (m)')
+                    self.axs[i,j].plot(self.t.cpu()+self.start_time, self.y[i,:,j].cpu(), label="Original")
+                    self.axs[i,j].plot(self.t.cpu()+self.start_time, z[i,:,j].cpu(), 'r--', label="Fit DMP")
+                    self.axs[i,j].set_title(f"DMP (env={i}, dim={j})",  fontsize=20)
+                    self.axs[i,j].set(xlabel = 'Time (s)')
+                    self.axs[i,j].set(ylabel ='Position (m)')
 
-                axs[i,3].plot(self.t.cpu(), self.ay[i,:,0].cpu(), label="w", color='m')
-                axs[i,3].plot(self.t.cpu(), self.ay[i,:,1].cpu(), label="x", color='r')
-                axs[i,3].plot(self.t.cpu(), self.ay[i,:,2].cpu(), label="y", color='g')
-                axs[i,3].plot(self.t.cpu(), self.ay[i,:,3].cpu(), label="z", color='b')
+                self.axs[i,3].plot(self.t.cpu()+self.start_time, self.ay[i,:,0].cpu(), label="w", color='m')
+                self.axs[i,3].plot(self.t.cpu()+self.start_time, self.ay[i,:,1].cpu(), label="x", color='r')
+                self.axs[i,3].plot(self.t.cpu()+self.start_time, self.ay[i,:,2].cpu(), label="y", color='g')
+                self.axs[i,3].plot(self.t.cpu()+self.start_time, self.ay[i,:,3].cpu(), label="z", color='b')
 
-                axs[i,3].plot(self.t.cpu(), az[i,:,0].cpu(), label="w - Fit", color='k', linestyle=":")
-                axs[i,3].plot(self.t.cpu(), az[i,:,1].cpu(), label="x - Fit", color='k', linestyle=":")
-                axs[i,3].plot(self.t.cpu(), az[i,:,2].cpu(), label="y - Fit", color='k', linestyle=":")
-                axs[i,3].plot(self.t.cpu(), az[i,:,3].cpu(), label="z - Fit", color='k', linestyle=":")
-            plt.show()
+                self.axs[i,3].plot(self.t.cpu()+self.start_time, az[i,:,0].cpu(), label="w - Fit", color='k', linestyle=":")
+                self.axs[i,3].plot(self.t.cpu()+self.start_time, az[i,:,1].cpu(), label="x - Fit", color='k', linestyle=":")
+                self.axs[i,3].plot(self.t.cpu()+self.start_time, az[i,:,2].cpu(), label="y - Fit", color='k', linestyle=":")
+                self.axs[i,3].plot(self.t.cpu()+self.start_time, az[i,:,3].cpu(), label="z - Fit", color='k', linestyle=":")
+            #plt.show()
+            #print("times:", self.start_time, self.start_time + self.update_dt)
+            self.start_time += self.update_dt
 
         old_obs['policy'] = self.new_obs
-        print("Done!")
+        #print("Done!")
         return old_obs
     
+    def reset(self, **kwargs):
+        """Reset the environment using kwargs and then starts recording if video enabled."""
+        
+        if self.save_fit:
+            plt.savefig("/home/hunter/Fit.png")
+        if self.display_fit:
+            plt.show()
+        if self.save_fit or self.display_fit:
+            plt.clf()
+            self.fig, self.axs = plt.subplots(self.num_envs, 4)
+            self.fig.set_figwidth(3 / 3 * 1600/96)
+            self.fig.set_figheight(self.num_envs / 4 * 1000/96)
+            self.fig.tight_layout(pad=5.0)
+            self.start_time = 0.0
+        
+        #print("\n\n\n\nreset\n\n\n\n\n")
+        #assert 1 == 0
+        observations, info = super().reset(**kwargs)
+
+
+
+        return observations, info

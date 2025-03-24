@@ -148,14 +148,14 @@ class ExtSequentialTrainer(Trainer):
             self.abs_agent.post_interaction(timestep=timestep, timesteps=self.timesteps)
 
             # reset environments
-            if self.env.num_envs > 1:
-                states = next_states
+            #if self.env.num_envs > 1:
+            #    states = next_states
+            #else:
+            if terminated.any() or truncated.any():
+                with torch.no_grad():
+                    states, infos = self.env.reset()
             else:
-                if terminated.any() or truncated.any():
-                    with torch.no_grad():
-                        states, infos = self.env.reset()
-                else:
-                    states = next_states
+                states = next_states
 
             self.training_timestep += 1
 
@@ -178,7 +178,7 @@ class ExtSequentialTrainer(Trainer):
         print("init training timestep:", self.training_timestep)
 
         self.abs_agent.reset_tracking()
-        # reset env
+        # reset env - unwrapped required because skrl does not call reset functions above it
         states, infos = self.env.unwrapped.reset()
         states, infos = self.env.reset()
 

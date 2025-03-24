@@ -120,7 +120,7 @@ def main(
     dec =  int(policy_dt / sim_dt )
     episode_length_s = 5.0
 
-    env_cfg.episode_length_s = 5.0
+    env_cfg.episode_length_s = episode_length_s
     env_cfg.sim.dt = sim_dt
     env_cfg.decimation = dec
     env_cfg.sim.render_interval = dec
@@ -244,7 +244,7 @@ def main(
         
     #if args_cli.dmp_obs:
     if "ObsDMP" in args_cli.task:
-        print("using obs dmp wrapper")
+        print("\n\n[INFO] Using DMP observation wrapper.\n\n")
         env = DMPObservationWrapper(
             env=env,
             num_weights=10,
@@ -263,9 +263,8 @@ def main(
     env = SkrlVecEnvWrapper(
         env, 
         ml_framework="torch"
-    )  # same as: `wrap_env(env, wrapper="auto")
-    
-    
+    )  # same as: `wrap_env(env, wrapper="auto")    
+    #env._reset_once = False
     env = GripperCloseEnv(env)
     
     device = env.device
@@ -341,7 +340,7 @@ def main(
         vid_env.set_video_name(f"evals/eval_0")
     
     trainer.eval(0, vid_env)
-    
+
     for i in range(num_evals):
         print(f"Beginning epoch {i+1}/{num_evals}")
         print("Training")
