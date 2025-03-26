@@ -2,7 +2,7 @@ import torch
 import torch.multiprocessing as mp
 from typing import List, Optional, Union, Any
 def fn_processor(process_index, *args):
-    print(f"[INFO] Processor {process_index}: started")
+    #print(f"[INFO] Processor {process_index}: started")
 
     pipe = args[0][process_index]
     queue = args[1][process_index]
@@ -12,6 +12,8 @@ def fn_processor(process_index, *args):
     agent = None
     _states = None
     _actions = None
+    _log_prob = None
+    _outputs = None
     _rew_dist = {}
     _term_dist = {}
 
@@ -30,7 +32,7 @@ def fn_processor(process_index, *args):
         elif task == "init":
             agent = queue.get()
             agent.init(trainer_cfg=queue.get())
-            print(f"[INFO] Processor {process_index}: init agent {type(agent).__name__} with scope {scope}")
+            print(f"[INFO] Processor {process_index}: init agent {type(agent).__name__} with scope {scope} on {agent.num_envs} envs")
             barrier.wait()
 
         # execute agent's pre-interaction step
@@ -47,11 +49,18 @@ def fn_processor(process_index, *args):
             _states = raw[scope[0] : scope[1]]
             with torch.no_grad():
                 stochastic_evaluation = agent.training #msg["stochastic_evaluation"]
-                _outputs = agent.act(_states, timestep=msg["timestep"], timesteps=msg["timesteps"])
-                _actions = _outputs[0] if not stochastic_evaluation else _outputs[-1].get("mean_actions", _outputs[0])
+                #_outputs = agent.act(_states, timestep=msg["timestep"], timesteps=msg["timesteps"])
+                #_actions = _outputs[0] if not stochastic_evaluation else _outputs[-1].get("mean_actions", _outputs[0])
+                _actions, _log_prob, _outputs = agent.act(_states, timestep=msg["timestep"], timesteps=msg["timesteps"])
                 if not _actions.is_cuda:
                     _actions.share_memory_()
+                if not _log_prob.is_cuda:
+                    _log_prob.share_memory_()
+                if not _outputs['mean_actions'].is_cuda:
+                    _outputs['mean_actions'].share_memory_()
                 queue.put(_actions)
+                queue.put(_log_prob)
+                queue.put(_outputs['mean_actions'])
                 barrier.wait()
 
         # record agent's experience
@@ -77,9 +86,9 @@ def fn_processor(process_index, *args):
                     timesteps=msg["timesteps"],
                     reward_dist=_rew_dist,
                     term_dist=_term_dist,
-                    alive_mask= queue.get()[scope[0] : scope[1]] if not alive_mask_is_none else None,
+                    alive_mask= None if alive_mask_is_none else queue.get()[scope[0] : scope[1]],
                 )
-                if not alive_mask_is_none:
+                if alive_mask_is_none:
                     queue.get()
                 barrier.wait()
 
@@ -148,6 +157,7 @@ class MPAgent():
             self.producer_pipes.append(pipe_write)
             self.consumer_pipes.append(pipe_read)
             self.queues.append(mp.Queue())
+
         # move tensors to shared memory
         for agent in self.agents:
             if agent.memory is not None:
@@ -173,6 +183,7 @@ class MPAgent():
             )
             self.processes.append(process)
             process.start()
+            
         self.barrier.wait()
         #import time
         #time.sleep(10)
@@ -219,7 +230,9 @@ class MPAgent():
             states.share_memory_()
         self.send({"task":"act", "timestep":timestep, "timesteps":timesteps}, [states])
         action = torch.vstack([queue.get() for queue in self.queues])
-        return action
+        log_prob = torch.vstack([queue.get() for queue in self.queues])
+        outputs = torch.vstack([queue.get() for queue in self.queues]) # we assume we only care about mean actions, works for me :)
+        return action, log_prob, {'mean_actions':outputs}
 
     def record_transition(self,
                           states: torch.Tensor,
@@ -242,7 +255,7 @@ class MPAgent():
             terminated.share_memory_()
         if not truncated.is_cuda:
             truncated.share_memory_()
-        if alive_mask is not None and not alive_mask.is_cuda():
+        if alive_mask is not None and not alive_mask.is_cuda:
             alive_mask.share_memory_()
         for rew_type in reward_dist.keys():
             if type(reward_dist[rew_type]) == torch.Tensor and not reward_dist[rew_type].is_cuda:
@@ -250,6 +263,7 @@ class MPAgent():
         for con in term_dist.keys():
             if not term_dist[con].is_cuda:
                 term_dist[con].share_memory_()
+                
         self.send(
             {
                 "task":"record_transition", "timestep":timestep, "timesteps":timesteps

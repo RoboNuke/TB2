@@ -11,7 +11,7 @@ parser.add_argument("--num_envs", type=int, default=256, help="Number of environ
 parser.add_argument("--seed", type=int, default=1, help="Seed used for the environment")
 parser.add_argument("--max_steps", type=int, default=10240000, help="RL Policy training iterations.")
 parser.add_argument("--force_encoding", type=str, default=None, help="Which type of force encoding to use if force is included")
-
+parser.add_argument("--num_agents", type=int, default=1, help="How many agents to train in parallel")
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")
 parser.add_argument("--exp_dir", type=str, default=None, help="Directory to store the experiment in")
@@ -90,6 +90,7 @@ from tests.learning.toy_mdp import PrintActivity
 from wrappers.info_video_recorder_wrapper import InfoRecordVideo
 from agents.mp_agent import MPAgent
 import torch.multiprocessing as mp
+import copy
 # seed for reproducibility
 set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
 
@@ -108,10 +109,12 @@ def main(
     mp.set_start_method("spawn")
     """Train with skrl agent."""
     max_rollout_steps = agent_cfg['agent']['rollouts']
+    print("Max Rollout steps:", max_rollout_steps)
 
     # check inputs
     assert args_cli.max_steps % args_cli.num_envs == 0, f'Iterations must be a multiple of num_envs: {args_cli.max_steps % args_cli.num_envs}'
     assert args_cli.max_steps % max_rollout_steps == 0, f'Iterations must be multiple of max_rollout_steps {args_cli.max_steps % max_rollout_steps}'
+    assert args_cli.num_envs % args_cli.num_agents == 0, f'Number of agents {args_cli.num_agents} does not even divide into number of envs {args_cli.num_envs}'
     
     # override configurations with non-hydra CLI arguments
     env_cfg.scene.num_envs = args_cli.num_envs 
@@ -138,66 +141,75 @@ def main(
         env_cfg.actions.arm_action.dmp_cfg.dt = sim_dt
 
     #print("Decimation:", dec)
-
+    agent_cfgs = [copy.deepcopy(agent_cfg) for _ in range(args_cli.num_agents)]
     # randomly sample a seed if seed = -1
-    if args_cli.seed == -1:
-        args_cli.seed = random.randint(0, 10000)
+    for agent_idx, a_cfg in enumerate(agent_cfgs):
+        a_cfg["seed"] = args_cli.seed
+        if a_cfg["seed"] == -1 or agent_idx > 0:
+            a_cfg["seed"] = random.randint(0, 10000)
+            
+        print("Seed:", a_cfg['seed'])
+        # set the agent and environment seed from command line
+        # note: certain randomization occur in the environment initialization so we set the seed here
+        if agent_idx == 0:
+            env_cfg.seed = a_cfg["seed"]
 
-    # set the agent and environment seed from command line
-    # note: certain randomization occur in the environment initialization so we set the seed here
-    agent_cfg["seed"] = args_cli.seed
-    env_cfg.seed = agent_cfg["seed"]
-
-    # specify directory for logging experiments
-    if args_cli.exp_dir is None:
-        log_root_path = os.path.join("logs", agent_cfg["agent"]["experiment"]["directory"])
-    else:
-        log_root_path = os.path.join("logs", args_cli.exp_dir)
-    log_root_path = os.path.abspath(log_root_path)
-    print(f"[INFO] Logging experiment in directory: {log_root_path}")
-
-    # specify directory for logging runs: {time-stamp}_{run_name}
-    if args_cli.exp_name is None:
-        if agent_cfg["agent"]["experiment"]["experiment_name"] == "":
-            log_dir = args_cli.task
+        # specify directory for logging experiments
+        if args_cli.exp_dir is None:
+            log_root_path = os.path.join("logs", a_cfg["agent"]["experiment"]["directory"])
+            if agent_idx > 0:
+                log_root_path = os.path.join("logs", a_cfg["agent"]["experiment"]["directory"] + f"_{agent_idx}")
         else:
-            log_dir = f'{agent_cfg["agent"]["experiment"]["experiment_name"]}'
-    else:
-        log_dir = f"{args_cli.exp_name}"
+            log_root_path = os.path.join("logs", args_cli.exp_dir)
+            if agent_idx > 0:
+                log_root_path = os.path.join("logs", args_cli.exp_dir)
 
-    log_dir += f'_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
-    
-    # set directory into agent config
-    agent_cfg["agent"]["experiment"]["directory"] = log_root_path
-    agent_cfg["agent"]["experiment"]["experiment_name"] = log_dir
-    # update log_dir
-    log_dir = os.path.join(log_root_path, log_dir)
-    #print("final log_dir=\n\t", log_dir)
+        log_root_path = os.path.abspath(log_root_path)
+        print(f"[INFO] Logging experiment in directory: {log_root_path}")
 
-    # agent configuration
+        # specify directory for logging runs: {time-stamp}_{run_name}
+        if args_cli.exp_name is None:
+            if a_cfg["agent"]["experiment"]["experiment_name"] == "":
+                log_dir = args_cli.task
+            else:
+                log_dir = f'{a_cfg["agent"]["experiment"]["experiment_name"]}'
+        else:
+            log_dir = f"{args_cli.exp_name}"
 
-    # dump the configuration into log-directory
-    if args_cli.dump_yaml:
-        dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
-        dump_yaml(os.path.join(log_dir, "params", "agent.yaml"), agent_cfg)
-    if args_cli.dump_pickle:
-        dump_pickle(os.path.join(log_dir, "params", "env.pkl"), env_cfg)
-        dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
+        log_dir += f'_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+        
+        # set directory into agent config
+        a_cfg["agent"]["experiment"]["directory"] = log_root_path
+        a_cfg["agent"]["experiment"]["experiment_name"] = log_dir
+        # update log_dir
+        log_dir = os.path.join(log_root_path, log_dir)
+        #print("final log_dir=\n\t", log_dir)
 
-    # determine video kwargs
-    vid = not args_cli.no_vids
-    if vid:
-        cfg = agent_cfg['video_tracking']
-        vid_interval = cfg['train_video_interval']
-        vid_len = cfg['video_length']
-        eval_vid = cfg['record_evals']
-        train_vid = cfg['record_training']
-    else:
-        print("\n\nNo Videos will be recorded\n\n")
-        delattr(env_cfg.observations.info, "img")
-        eval_vid = False
-        train_vid = False
-        delattr(env_cfg.scene,"tiled_camera")
+        # agent configuration
+
+        # dump the configuration into log-directory
+        if args_cli.dump_yaml:
+            dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
+            dump_yaml(os.path.join(log_dir, "params", "agent.yaml"), a_cfg)
+        if args_cli.dump_pickle:
+            dump_pickle(os.path.join(log_dir, "params", "env.pkl"), env_cfg)
+            dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), a_cfg)
+
+        # determine video kwargs
+        vid = not args_cli.no_vids
+        if vid:
+            cfg = a_cfg['video_tracking']
+            vid_interval = cfg['train_video_interval']
+            vid_len = cfg['video_length']
+            eval_vid = cfg['record_evals']
+            train_vid = cfg['record_training']
+        else:
+            if agent_idx == 0:
+                print("\n\nNo Videos will be recorded\n\n")
+                delattr(env_cfg.observations.info, "img")
+                eval_vid = False
+                train_vid = False
+                delattr(env_cfg.scene,"tiled_camera")
         
     # create env
     env = gym.make(
@@ -275,17 +287,17 @@ def main(
 
     memory = RandomMemory(
             memory_size=agent_cfg['agent']["rollouts"], 
-            num_envs=env.num_envs // 2, 
+            num_envs=env.num_envs // args_cli.num_agents, 
             device=device
         )
     # instantiate the agent's models (function approximators).
     # PPO requires 2 models, visit its documentation for more details
     # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html#models
-    models = {}
+    model = {}
     #models["policy"] = Shared(env.observation_space, env.action_space, device)
     
     
-    models['policy'] = BroAgent(
+    model['policy'] = BroAgent(
         observation_space=env.observation_space, 
         action_space=env.action_space,
         device=device,
@@ -296,49 +308,49 @@ def main(
         actor_n = agent_cfg['models']['actor']['n'],
         actor_latent = agent_cfg['models']['actor']['latent_size']
     ) 
-    models["value"] = models["policy"]  # same instance: shared model
+    model["value"] = model["policy"]  # same instance: shared model
     
     # set wandb parameters
-    agent_cfg['agent']['experiment']['wandb'] = args_cli.no_log_wandb
-    wandb_kwargs = {
-        "project":args_cli.wandb_project,
-        "entity":args_cli.wandb_entity,
-        "api_key":args_cli.wandb_api_key,
-        "tags":args_cli.wandb_tags,
-        "run_name":agent_cfg["agent"]["experiment"]["experiment_name"]
-    }
+    for a_cfg in agent_cfgs:
+        a_cfg['agent']['experiment']['wandb'] = args_cli.no_log_wandb
+        wandb_kwargs = {
+            "project":args_cli.wandb_project,
+            "entity":args_cli.wandb_entity,
+            "api_key":args_cli.wandb_api_key,
+            "tags":args_cli.wandb_tags,
+            "run_name":a_cfg["agent"]["experiment"]["experiment_name"]
+        }
 
-    agent_cfg["agent"]["experiment"]["wandb_kwargs"] = wandb_kwargs
+        a_cfg["agent"]["experiment"]["wandb_kwargs"] = wandb_kwargs
     # create the agent
     #agent = WandbLoggerPPO(models=models,
-    import copy
     agent_list = [
         WandbLoggerPPO(
-            models=copy.deepcopy(models),
+            models=copy.deepcopy(model),
             memory=copy.deepcopy(memory),
-            cfg=agent_cfg['agent'],
+            cfg=agent_cfgs[i]['agent'],
             observation_space=env.observation_space,
             action_space=env.action_space,
-            num_envs=2,
+            num_envs=args_cli.num_envs // args_cli.num_agents,
             device=device
-        ) for _ in range(2)
+        ) for i in range(args_cli.num_agents)
     ]
-    
-    agent = MPAgent(agents=agent_list, agents_scope=[[0,2],[2,4]] )
+
+    n = args_cli.num_envs // args_cli.num_agents
+    agents_scope = [[i * n, (i+1) * n] for i in range(args_cli.num_agents)]
+
+    agent = MPAgent(agents=agent_list, agents_scope=agents_scope )
     # TODO make scope and num agents a var
     if vid:
         vid_env.set_agent(AgentList(agent_list, agents_scope=[2,2]))
 
     # configure and instantiate the RL trainer
     cfg_trainer = {
-        "timesteps": args_cli.max_steps // args_cli.num_envs, 
+        "timesteps": args_cli.max_steps // (args_cli.num_envs * args_cli.num_agents), 
         "headless": True,
         "close_environment_at_exit": True
     }
 
-    # TODO make scope a var
-    print("Action Space:", env.action_space)
-    print("Obs Space:", env.observation_space)
     trainer = ExtSequentialTrainer(
         cfg = cfg_trainer,
         env = env,
@@ -348,7 +360,7 @@ def main(
     env.recording = vid # True
     # our actual learning loop
     ckpt_int = agent_cfg["agent"]["experiment"]["checkpoint_interval"]
-    num_evals = max(1,args_cli.max_steps // (ckpt_int * args_cli.num_envs))
+    num_evals = max(1,args_cli.max_steps // (ckpt_int * args_cli.num_envs * args_cli.num_agents))
     evaluating = True
     if eval_vid:   
         vid_env.set_video_name(f"evals/eval_0")

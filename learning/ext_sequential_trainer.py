@@ -119,7 +119,7 @@ class ExtSequentialTrainer(Trainer):
                     states, 
                     timestep=timestep, 
                     timesteps=self.timesteps
-                )
+                )[0] # we take only the sampled action
                 
                 # step the environments
                 #print("before len buf:\t", self.env.unwrapped.episode_length_buf)
@@ -210,40 +210,19 @@ class ExtSequentialTrainer(Trainer):
         states, infos = self.env.reset()
 
         ep_length = self.env.env.max_episode_length #- 1
-        """
-        # data to care about:
-            - mean, median (TODO), min, max
-                - step reward
-                - return
-                - sub rewards
-                - force metrics 
-                    - Max Force
-                    - Sum Squared Velocity
-                    - Jerk
-            - percent
-                - failure reason (distribution)
-                    - termination
-                    - truncation
-                - success rate 
-        """
-        """
-        m4_returns = {}
-        count_stats = {}
+                
+        term_man = self.env.unwrapped.termination_manager
+        term_cond = term_man.active_terms
+        term_dist = {}
+        for con in term_cond:
+            term_dist[con] = torch.zeros_like(term_man.get_term(con))
         
-        for info_key in infos.keys():
-            print(info_key)
-            for key in infos[info_key]:
-                print(f"\t{key}")
-                if key.startswith("Episode_Termination"):
-                    count_stats[key] = torch.zeros(size=(1, ), device=states.device)
-                else:
-                    m4_returns[key] = torch.zeros(size=(ep_length, states.shape[0]), device=states.device)
-                    #print(key, m4_returns[key].shape)
+        rew_man = self.env.unwrapped.reward_manager
+        rew_types = rew_man._episode_sums.keys()
+        rew_dist = {}
+        for con in rew_types:
+            rew_dist[con] = torch.zeros_like( torch.unsqueeze(rew_man._episode_sums[con], 1)) 
 
-        steps_to_death = torch.zeros_like(alive_mask)
-
-        m4_returns['returns'] = torch.zeros(size=(states.shape[0], 1), device=states.device)
-        """
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -252,57 +231,29 @@ class ExtSequentialTrainer(Trainer):
                 
                 # compute actions
                 with torch.no_grad():
-                    actions = self.abs_agent.act(states, timestep=timestep, timesteps=self.timesteps)
+                    actions = self.abs_agent.act(
+                        states, 
+                        timestep=timestep, 
+                        timesteps=self.timesteps
+                    )[-1]['mean_actions'] # this makes the policy deterministic (no sampling)
                     
-                    #print(self.env.unwrapped.observation_manager._obs_buffer['info'])
-                    #print(self.env._observations)
                     # step the environments
                     next_states, rewards, terminated, truncated, infos = self.env.step(actions)
-                    """for big_key in infos.keys():
-                        print(big_key)
-                        if type(big_key) == dict:
-                            for l_key in infos[big_key].keys():
-                                print(f'\t{l_key}')
-                    #print(next_states.size())"""
-                    #infos['log']['Episode_Termination/time_out'] = truncated.sum()
-                    #print("termed:\t", self.env.unwrapped.termination_manager.terminated)
-                    #print("time_outs:\t", self.env.unwrapped.termination_manager.time_outs)
+                    
                     if vid_env is not None and vid_env.is_recording():
                         self.env.cfg.recording = True
                     
                     mask_update = 1 - torch.logical_or(terminated, truncated).float()
                     
                     self.env.unwrapped.common_step_counter -= 1
-                    """
-                    for big_key in infos.keys():#if 'log' in infos or 'smoothness' in infos:
-                        # get total number of terminations (failures) of all envs
-                        tot = 0
-                        for k in count_stats.keys():
-                            tot += infos['log'][k]
-                        
-                        # get number of envs that terminated for the first time
-                        tot_first_term = torch.sum(alive_mask * terminated)
+                    
+                    # get specific reward and termination data
+                    for rew_type in rew_types:
+                        rew_dist[rew_type] = torch.unsqueeze(rew_man._episode_sums[rew_type], 1).clone()
 
-                        for k, v in infos[big_key].items():
-                            if k in m4_returns.keys():
-                                m4_returns[k][timestep,:] = (v * alive_mask)[:,0]
-                            elif "time_out" in k:
-                                #if torch.sum(alive_mask * truncated) > 0:
-                                #    print("time_outed:", torch.sum(alive_mask * truncated))
-                                count_stats[k] += torch.sum(alive_mask * truncated)
-                            elif k in count_stats.keys() and tot > 0.5:
-                                # we cannont reliably determine which environment caused which failure
-                                # so we assume each failure case is equally possible and add partial values
-                                # to their running sum.  I.E 2 peg_broke and 8 peg_fall, with 4 envs that had previous
-                                # not failed.  We would then add 4 * 0.2 to the peg_broke total and 0.8*4 to the peg_fall total
-                                #print(f"{k}: {v}")
-                                count_stats[k] += tot_first_term * v / tot 
-
-                    # compute returns
-                    m4_returns['returns'] += rewards * alive_mask 
-                    steps_to_death += alive_mask
-                    """
-                    #print("Trainer in:", infos['log']["Episode_Reward/keypoint_baseline"])
+                    for con in term_cond:
+                        term_dist[con] = term_man.get_term(con)
+                    
                     alive_mask = self.abs_agent.record_transition(
                         states=states,
                         actions=actions,
@@ -313,7 +264,8 @@ class ExtSequentialTrainer(Trainer):
                         infos=infos,
                         timestep=timestep,
                         timesteps=self.timesteps,
-                        env=self.env,
+                        reward_dist = rew_dist,
+                        term_dist = term_dist,
                         alive_mask = alive_mask
                     )
 
@@ -334,37 +286,5 @@ class ExtSequentialTrainer(Trainer):
                                 states, infos = self.env.reset()
                         else:
                             states = next_states
-        
-        #print("Max term: ", torch.max(termination_counter))
-        #print("Max truc: ", torch.max(truncated_counter))
-        """
-        for k, v in m4_returns.items():
-            if k == 'returns':
-                self.abs_agent.track_data(f'Eval Reward / Avg Returns', v.mean().item())
-                self.abs_agent.track_data(f'Eval Reward / Max Returns', torch.min(v).item())
-                self.abs_agent.track_data(f'Eval Reward / Min Returns', torch.max(v).item())
-            elif 'Force' in k:
-                idx = k.index("/") + 1 
-                self.abs_agent.track_data(f'Eval {k[:idx] + " Max" + k[idx:]}', torch.max(v).item())
-                tot = torch.sum(v, dim=0)
-                self.abs_agent.track_data(f'Eval {k[:idx] + " Avg" + k[idx:]}', (tot / steps_to_death).mean().item())
-            else:
-                idx = k.index("/") + 1 
-                my_k = "Eval " + k[:idx]
-                my_k = my_k.replace('Episode_Reward/', "Reward /")
-                my_k = my_k.replace('Episode_Termination/', 'Termination /')
-                print(k," to ", my_k)
-                tot = torch.sum(v, dim=0)
-                stp_avg = tot / steps_to_death
-                self.abs_agent.track_data(f'{my_k + " Step Avg " + k[idx:]}', stp_avg.mean().item())
-                self.abs_agent.track_data(f'{my_k + " Step Max " + k[idx:]}', torch.max(stp_avg).item())
-                self.abs_agent.track_data(f'{my_k + " Step Min " + k[idx:]}', torch.min(stp_avg).item())
-
-        
-        for k,v in count_stats.items():
-            idx = k.index("/") + 1 
-            my_k = "Eval " + k
-            my_k = my_k.replace('Episode_Termination/', 'Termination /')
-            self.abs_agent.track_data(my_k, v.item())
-        """
+                            
         self.abs_agent.write_tracking_data(self.training_timestep, self.timesteps, eval=True)

@@ -31,7 +31,7 @@ class DMPObservationWrapper(gym.ObservationWrapper):
 
         self.num_weights = num_weights
         self.fit_ft = fit_force_data
-        self.save_fit = True
+        self.save_fit = False
         
         self.display_fit = False
         # calculating t values is tricky, I assume

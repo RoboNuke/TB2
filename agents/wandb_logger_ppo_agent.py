@@ -20,7 +20,7 @@ import collections
 class WandbLoggerPPO(PPO):
     def __del__(self):
         self.data_manager.finish()
-        
+
     def __init__(
             self,
             models: Mapping[str, Model],
@@ -34,7 +34,7 @@ class WandbLoggerPPO(PPO):
         super().__init__(models, memory, observation_space, action_space, device, cfg)
         self.global_step = 0
         self.num_envs = num_envs
-
+        
         self._track_rewards = collections.deque(maxlen=1000)
         self._track_timesteps = collections.deque(maxlen=1000)
 
@@ -56,7 +56,6 @@ class WandbLoggerPPO(PPO):
         if config.torch.is_distributed and config.torch.rank:
             self.write_interval = 0
             self.checkpoint_interval = 0
-            # TODO: disable wandb
             
 
         # main entry to log data for consumption and visualization by TensorBoard
@@ -90,8 +89,6 @@ class WandbLoggerPPO(PPO):
         self._current_log_prob = None
         self._current_next_states = None
 
-
-
         # setup Weights & Biases
         self.log_wandb = False
         if self.cfg.get("experiment", {}).get("wandb", False):
@@ -101,7 +98,7 @@ class WandbLoggerPPO(PPO):
                 models_cfg = {k: v.net._modules for (k, v) in self.models.items()}
             except AttributeError:
                 models_cfg = {k: v._modules for (k, v) in self.models.items()}
-            wandb_config={**self.cfg, **trainer_cfg, **models_cfg}
+            wandb_config={**self.cfg, **trainer_cfg, **models_cfg, "num_envs":self.num_envs}
             # set default values
             wandb_kwargs = copy.deepcopy(self.cfg.get("experiment", {}).get("wandb_kwargs", {}))
             wandb_kwargs.setdefault("name", os.path.split(self.experiment_dir)[-1])
@@ -158,9 +155,7 @@ class WandbLoggerPPO(PPO):
         :type timesteps: int
         """
         if self.log_wandb:
-            prefix = "Training"
-            if eval:
-                prefix = "Eval"
+            prefix = "Eval" if eval else "Training"
 
             # handle cumulative rewards
             if len(self._track_rewards):
@@ -237,6 +232,7 @@ class WandbLoggerPPO(PPO):
         :type timesteps: int
         """
         self._rollout += 1
+        #print(f'Rollouts-Count {self._rollout}\t{self._rollouts}\t{not self._rollout % self._rollouts}\t{timestep >= self._learning_starts}')
         if not self._rollout % self._rollouts and timestep >= self._learning_starts:
             self.set_mode("train")
             self._update(timestep, timesteps)
@@ -307,7 +303,9 @@ class WandbLoggerPPO(PPO):
 
             # compute values
             values, _, _ = self.value.act({"states": self._state_preprocessor(states)}, role="value")
+            #print("Avg Raw Values:", torch.mean(values))
             values = self._value_preprocessor(values, inverse=True)
+            #print("Avg Processed Values:", torch.mean(values))
 
             # time-limit (truncation) boostrapping
             if self._time_limit_bootstrap:
@@ -463,4 +461,31 @@ class WandbLoggerPPO(PPO):
     def set_running_mode(self, mode):
         super().set_running_mode(mode)
         self.reset_tracking() 
+
+    #def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
+        """Process the environment's states to make a decision (actions) using the main policy
+
+        :param states: Environment's states
+        :type states: torch.Tensor
+        :param timestep: Current timestep
+        :type timestep: int
+        :param timesteps: Number of timesteps
+        :type timesteps: int
+
+        :return: Actions
+        :rtype: torch.Tensor
+        """
+        """
+        # sample random actions
+        # TODO, check for stochasticity
+        if timestep < self._random_timesteps:
+            return self.policy.random_act({"states": self._state_preprocessor(states)}, role="policy")
+
+        # sample stochastic actions
+        with torch.autocast(device_type=self._device_type, enabled=self._mixed_precision):
+            actions, log_prob, outputs = self.policy.act({"states": self._state_preprocessor(states)}, role="policy")
+            self._current_log_prob = log_prob
+
+        return actions, log_prob, outputs"
+        """
 
