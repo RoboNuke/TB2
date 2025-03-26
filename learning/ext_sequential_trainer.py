@@ -54,7 +54,7 @@ class ExtSequentialTrainer(Trainer):
         
         super().__init__(env=env, agents=agents, agents_scope=agents_scope, cfg=_cfg)
         
-        self.abs_agent = AgentList(self.agents, self.agents_scope)
+        self.abs_agent = AgentList(self.agents, self.agents_scope, cfg=cfg)
 
         # init agents
         self.abs_agent.init(trainer_cfg=self.cfg)
@@ -85,21 +85,36 @@ class ExtSequentialTrainer(Trainer):
         states, infos = self.env.unwrapped.reset() # reseting unwrapped seems to ensure full reset idk
         states, infos = self.env.reset()
 
-        self.agents.memory.reset()
-        self.agents._rollout = 0
+        self.abs_agent.reset_memory()
+        self.abs_agent._rollout = 0
         # self.agents._cumulative_rewards = None
         # self.agents._cumulative_timesteps = None
+        # allocate some memeroy
+        term_man = self.env.unwrapped.termination_manager
+        term_cond = term_man.active_terms
+        term_dist = {}
+        for con in term_cond:
+            term_dist[con] = torch.zeros_like(term_man.get_term(con))
+        
+        rew_man = self.env.unwrapped.reward_manager
+        rew_types = rew_man._episode_sums.keys()
+        rew_dist = {}
+        for con in rew_types:
+            rew_dist[con] = torch.zeros_like( torch.unsqueeze(rew_man._episode_sums[con], 1)) 
+
 
         train_start = self.training_timestep
         train_pause = self.training_timestep + train_timesteps
         
         for timestep in tqdm.tqdm(range(train_start, train_pause), disable=self.disable_progressbar, file=sys.stdout):
-
+            
+            
             # pre-interaction
             self.abs_agent.pre_interaction(timestep=timestep, timesteps=self.timesteps)
 
             # compute actions
             with torch.no_grad():
+                
                 actions = self.abs_agent.act(
                     states, 
                     timestep=timestep, 
@@ -117,11 +132,19 @@ class ExtSequentialTrainer(Trainer):
                 infos['log']['Episode_Termination/time_out'] = truncated.sum()
                 if vid_env is not None and vid_env.is_recording():
                     self.env.cfg.recording = True
-
+                    
                 #print(infos['smoothness'])
                 # render scene
                 if not self.headless:
+                    print("rendering")
                     self.env.render()
+
+                # get specific reward and termination data
+                for rew_type in rew_types:
+                    rew_dist[rew_type] = torch.unsqueeze(rew_man._episode_sums[rew_type], 1).clone()
+
+                for con in term_cond:
+                    term_dist[con] = term_man.get_term(con)
 
                 # record the environments' transitions
                 self.abs_agent.record_transition(
@@ -133,9 +156,12 @@ class ExtSequentialTrainer(Trainer):
                     truncated=truncated,
                     infos=infos,
                     timestep=timestep,
-                    env=self.env,
+                    reward_dist = rew_dist,
+                    term_dist = term_dist,
                     timesteps=self.timesteps
                 )
+                
+
 
                 # log environment info
                 if self.environment_info in infos:
@@ -146,6 +172,7 @@ class ExtSequentialTrainer(Trainer):
 
             # post-interaction
             self.abs_agent.post_interaction(timestep=timestep, timesteps=self.timesteps)
+            
 
             # reset environments
             #if self.env.num_envs > 1:

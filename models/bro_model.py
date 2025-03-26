@@ -81,6 +81,7 @@ class NatureCNN(nn.Module):
         if with_state and not with_force:
             # for state data we simply pass it through a single linear layer
             #extractors["state"] = nn.Sequential(
+            
             self.feat_extractor = nn.Sequential(
                 nn.Linear(obs_size, 256),
                 nn.ReLU()

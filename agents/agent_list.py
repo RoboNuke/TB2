@@ -11,11 +11,13 @@ from skrl.agents.torch import Agent
 from skrl.envs.wrappers.torch import Wrapper
 
 
+
 class AgentList():
-    def __init__(self, agent_list: Union[Agent, List[Agent]], agents_scope=None):
+    def __init__(self, agent_list: Union[Agent, List[Agent]], agents_scope=None, cfg=None):
         self.agents = agent_list
-        self.is_list = type(self.agents) == List[Agent]
+        self.is_list = cfg.get("agent_is_list", False)
         self.agents_scope = agents_scope
+        
 
     def init(self, trainer_cfg):
         if self.is_list:
@@ -23,6 +25,24 @@ class AgentList():
                 agent.init(trainer_cfg=trainer_cfg)
         else:
             self.agents.init(trainer_cfg=trainer_cfg)
+
+
+    def reset_memory(self):
+        if self.is_list:
+            for agent in self.agents:
+                agent.memory.reset()
+        else:
+            try:
+                self.agents.memory.reset()
+            except AttributeError:
+                self.agents.reset_memory()
+
+    def track_video_path(self, tag: str, value: str, timestep)-> None:
+        if self.is_list:
+            for agent in self.agents:
+                agent.track_video_path(tag, value, timestep)
+        else:
+            self.agents.track_video_path(tag, value, timestep)
 
     def track_data(self, tag: str, value: float) -> None:
         if self.is_list:
@@ -60,7 +80,7 @@ class AgentList():
                 ]
             )
         else:
-            return self.agents.act(states, timestep=timestep, timesteps=timesteps)[0]
+            return self.agents.act(states, timestep=timestep, timesteps=timesteps)#[0]
 
     def record_transition(self,
                           states: torch.Tensor,
@@ -72,33 +92,64 @@ class AgentList():
                           infos: Any,
                           timestep: int,
                           timesteps: int,
-                          env,
+                          reward_dist: dict,
+                          term_dist: dict,
                           alive_mask: torch.Tensor = None) -> None:
         if self.is_list:
             for agent, scope in zip(self.agents, self.agents_scope):
-                    return agent.record_transition(states=states[scope[0]:scope[1]],
-                                        actions=actions[scope[0]:scope[1]],
-                                        rewards=rewards[scope[0]:scope[1]],
-                                        next_states=next_states[scope[0]:scope[1]],
-                                        terminated=terminated[scope[0]:scope[1]],
-                                        truncated=truncated[scope[0]:scope[1]],
-                                        infos=infos,
-                                        timestep=timestep,
-                                        timesteps=timesteps,
-                                        env=env,
-                                        alive_mask=alive_mask)
+                    agent_rew_dist = {}
+                    for rew_type in reward_dist.keys():
+                        agent_rew_dist[rew_type] = reward_dist[rew_type][scope[0]:scope[1]]
+
+                    agent_term_dist = {}
+                    for con in term_dist.keys():
+                        agent_term_dist[con] = term_dist[con][scope[0]:scope[1]]
+
+                    if alive_mask is None:
+                        agent.record_transition(
+                            states=states[scope[0]:scope[1]],
+                            actions=actions[scope[0]:scope[1]],
+                            rewards=rewards[scope[0]:scope[1]],
+                            next_states=next_states[scope[0]:scope[1]],
+                            terminated=terminated[scope[0]:scope[1]],
+                            truncated=truncated[scope[0]:scope[1]],
+                            infos=infos,
+                            timestep=timestep,
+                            timesteps=timesteps,
+                            reward_dist = agent_rew_dist,
+                            term_dist = agent_term_dist
+                        )
+                    else:
+                        alive_mask[scope[0]:scope[1]] = agent.record_transition(
+                            states=states[scope[0]:scope[1]],
+                            actions=actions[scope[0]:scope[1]],
+                            rewards=rewards[scope[0]:scope[1]],
+                            next_states=next_states[scope[0]:scope[1]],
+                            terminated=terminated[scope[0]:scope[1]],
+                            truncated=truncated[scope[0]:scope[1]],
+                            infos=infos,
+                            timestep=timestep,
+                            timesteps=timesteps,
+                            reward_dist = agent_rew_dist,
+                            term_dist = agent_term_dist,
+                            alive_mask=alive_mask[scope[0]:scope[1]]
+                        )
+            return alive_mask
         else:
-            return self.agents.record_transition(states=states,
-                                        actions=actions,
-                                        rewards=rewards,
-                                        next_states=next_states,
-                                        terminated=terminated,
-                                        truncated=truncated,
-                                        infos=infos,
-                                        timestep=timestep,
-                                        timesteps=timesteps,
-                                        env=env,
-                                        alive_mask=alive_mask)
+            return self.agents.record_transition(
+                states=states,
+                actions=actions,
+                rewards=rewards,
+                next_states=next_states,
+                terminated=terminated,
+                truncated=truncated,
+                infos=infos,
+                timestep=timestep,
+                timesteps=timesteps,
+                reward_dist = reward_dist,
+                term_dist = term_dist,
+                alive_mask=alive_mask
+            )
 
     def set_running_mode(self, mode: str) -> None:
         if self.is_list:

@@ -66,7 +66,7 @@ from wrappers.close_gripper_action_wrapper import GripperCloseEnv
 from models.default_mixin import Shared
 from models.bro_model import BroAgent
 from wrappers.DMP_observation_wrapper import DMPObservationWrapper
-
+from agents.agent_list import AgentList
 
 from omni.isaac.lab.envs import (
     DirectMARLEnv,
@@ -88,6 +88,8 @@ from agents.wandb_logger_ppo_agent import WandbLoggerPPO
 
 from tests.learning.toy_mdp import PrintActivity
 from wrappers.info_video_recorder_wrapper import InfoRecordVideo
+from agents.mp_agent import MPAgent
+import torch.multiprocessing as mp
 # seed for reproducibility
 set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
 
@@ -102,6 +104,8 @@ def main(
     agent_cfg: dict
 ):
     global evaluating
+
+    mp.set_start_method("spawn")
     """Train with skrl agent."""
     max_rollout_steps = agent_cfg['agent']['rollouts']
 
@@ -270,15 +274,16 @@ def main(
     device = env.device
 
     memory = RandomMemory(
-        memory_size=agent_cfg['agent']["rollouts"], 
-        num_envs=env.num_envs, 
-        device=device
-    )
+            memory_size=agent_cfg['agent']["rollouts"], 
+            num_envs=env.num_envs // 2, 
+            device=device
+        )
     # instantiate the agent's models (function approximators).
     # PPO requires 2 models, visit its documentation for more details
     # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html#models
     models = {}
     #models["policy"] = Shared(env.observation_space, env.action_space, device)
+    
     
     models['policy'] = BroAgent(
         observation_space=env.observation_space, 
@@ -290,7 +295,7 @@ def main(
         critic_latent = agent_cfg['models']['critic']['latent_size'],
         actor_n = agent_cfg['models']['actor']['n'],
         actor_latent = agent_cfg['models']['actor']['latent_size']
-    )
+    ) 
     models["value"] = models["policy"]  # same instance: shared model
     
     # set wandb parameters
@@ -306,25 +311,34 @@ def main(
     agent_cfg["agent"]["experiment"]["wandb_kwargs"] = wandb_kwargs
     # create the agent
     #agent = WandbLoggerPPO(models=models,
-    agent = WandbLoggerPPO(
-        models=models,
-        memory=memory,
-        cfg=agent_cfg['agent'],
-        observation_space=env.observation_space,
-        action_space=env.action_space,
-        device=device
-    )
+    import copy
+    agent_list = [
+        WandbLoggerPPO(
+            models=copy.deepcopy(models),
+            memory=copy.deepcopy(memory),
+            cfg=agent_cfg['agent'],
+            observation_space=env.observation_space,
+            action_space=env.action_space,
+            num_envs=2,
+            device=device
+        ) for _ in range(2)
+    ]
     
+    agent = MPAgent(agents=agent_list, agents_scope=[[0,2],[2,4]] )
+    # TODO make scope and num agents a var
     if vid:
-        vid_env.set_agent(agent)
+        vid_env.set_agent(AgentList(agent_list, agents_scope=[2,2]))
 
     # configure and instantiate the RL trainer
     cfg_trainer = {
         "timesteps": args_cli.max_steps // args_cli.num_envs, 
         "headless": True,
-        "close_environment_at_exit": False
+        "close_environment_at_exit": True
     }
 
+    # TODO make scope a var
+    print("Action Space:", env.action_space)
+    print("Obs Space:", env.observation_space)
     trainer = ExtSequentialTrainer(
         cfg = cfg_trainer,
         env = env,
@@ -339,7 +353,7 @@ def main(
     if eval_vid:   
         vid_env.set_video_name(f"evals/eval_0")
     
-    trainer.eval(0, vid_env)
+    #trainer.eval(0, vid_env)
 
     for i in range(num_evals):
         print(f"Beginning epoch {i+1}/{num_evals}")

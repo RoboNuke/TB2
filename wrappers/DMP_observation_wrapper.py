@@ -33,7 +33,7 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         self.fit_ft = fit_force_data
         self.save_fit = True
         
-        self.display_fit = True
+        self.display_fit = False
         # calculating t values is tricky, I assume
         # that x = 0 is equal to update_dt
         # while using a tau may be the correct way, simpling scaling
@@ -140,10 +140,8 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         self.new_obs[:, (self.num_weights * 3):] = self.ang_dmp.w.reshape(self.num_envs, self.num_weights * 3) 
         #print(self.new_obs)
 
+
         # move final obs to init position
-        for i in range(len(self.unpack_list)):
-            var_name, var_ref = self.unpack_list[i]
-            var_ref[:,0,:] = var_ref[:,-1,:]
 
         if (self.save_fit or self.display_fit) and self.start_time < 4.9:
             ts, z, dz, ddz = self.pos_dmp.rollout(
@@ -181,6 +179,9 @@ class DMPObservationWrapper(gym.ObservationWrapper):
             #print("times:", self.start_time, self.start_time + self.update_dt)
             self.start_time += self.update_dt
 
+        for i in range(len(self.unpack_list)):
+            var_name, var_ref = self.unpack_list[i]
+            var_ref[:,0,:] = var_ref[:,-1,:]
         old_obs['policy'] = self.new_obs
         #print("Done!")
         return old_obs
@@ -202,8 +203,26 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         
         #print("\n\n\n\nreset\n\n\n\n\n")
         #assert 1 == 0
-        observations, info = super().reset(**kwargs)
+        old_obs, info = super().reset(**kwargs)
+        
+        """
+        print(old_obs['policy'], old_obs['policy'].size())
+        idx = 0
+        for i in range(len(self.unpack_list)):
+            var_name, var_ref = self.unpack_list[i]
+            dim = 4 if "quat" in var_name else 3
+            #print(f"{var_name}: {idx}, {idx + self.dec*dim}")
+            if "ang" in var_name:
+                var_ref[:,0,1:] = old_obs['policy'][:, idx:idx + self.dec*dim].view(
+                    (self.num_envs, self.dec, dim)
+                )[:,0,:]
+            else:
+                var_ref[:,0,:] = old_obs['policy'][:, idx:idx + self.dec*dim].view(
+                    (self.num_envs, self.dec, dim)
+                )[:,0,:]
+            idx += self.dec * dim
+        obs = self.observation(old_obs)
+        """
 
 
-
-        return observations, info
+        return old_obs, info

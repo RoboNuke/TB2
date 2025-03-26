@@ -18,18 +18,22 @@ import wandb
 
 import collections
 class WandbLoggerPPO(PPO):
+    def __del__(self):
+        self.data_manager.finish()
+        
     def __init__(
             self,
             models: Mapping[str, Model],
             memory: Optional[Union[Memory, Tuple[Memory]]] = None,
             observation_space: Optional[Union[int, Tuple[int], gym.Space, gymnasium.Space]] = None,
             action_space: Optional[Union[int, Tuple[int], gym.Space, gymnasium.Space]] = None,
+            num_envs: int = 256,
             device: Optional[Union[str, torch.device]] = None,
             cfg: Optional[dict] = None
     ) -> None:
         super().__init__(models, memory, observation_space, action_space, device, cfg)
         self.global_step = 0
-        self.num_envs = memory.num_envs
+        self.num_envs = num_envs
 
         self._track_rewards = collections.deque(maxlen=1000)
         self._track_timesteps = collections.deque(maxlen=1000)
@@ -267,7 +271,8 @@ class WandbLoggerPPO(PPO):
                         infos: Any,
                         timestep: int,
                         timesteps: int,
-                        env,
+                        reward_dist: dict,
+                        term_dist: dict,
                         alive_mask: torch.Tensor = None) -> None:
         """Record an environment transition in memory
 
@@ -355,14 +360,14 @@ class WandbLoggerPPO(PPO):
                     if k in self.m4_returns.keys():
                             
                         if 'success' in k:
-                            rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
+                            rew = reward_dist[k.split("/")[-1]]
                             self.count_stats['success'][rew>0.0001] = 1.0
                         elif 'engaged' in k:
-                            rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
+                            rew = reward_dist[k.split("/")[-1]]
                             self.count_stats['engaged'][rew>0.0001] = 1.0
 
                         if 'Reward' in k:
-                            rew = torch.unsqueeze(env.unwrapped.reward_manager._episode_sums[k.split("/")[-1]], 1).clone()
+                            rew = reward_dist[k.split("/")[-1]]
                             if eval_mode:
                                 self.m4_returns[k][alive_mask] = rew[alive_mask]#(rew * alive_mask)
                             else:
@@ -380,11 +385,11 @@ class WandbLoggerPPO(PPO):
                             self.count_stats[k] += torch.sum( 
                                 torch.logical_and(
                                     alive_mask.T, 
-                                    env.unwrapped.termination_manager.get_term(key)
+                                    term_dist[key]
                                 )
                             )
                         else:
-                            self.count_stats[k] += torch.sum(env.unwrapped.termination_manager.get_term(key))
+                            self.count_stats[k] += torch.sum(term_dist[key])
                             
             # handle reward 
             prefix = "Training"

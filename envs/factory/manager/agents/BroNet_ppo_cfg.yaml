@@ -36,6 +36,7 @@ agent:
   rewards_shaper_scale: 1.0
   time_limit_bootstrap: False
 
+  agent_is_list: False
   # logging and checkpoint
   experiment:
     directory: "Tests"

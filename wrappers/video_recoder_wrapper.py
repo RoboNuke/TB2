@@ -23,6 +23,7 @@ def capped_cubic_video_schedule(episode_id: int) -> bool:
     else:
         return episode_id % 1000 == 0
 
+# TODO cannont handle multiple agents ... yet
 class ExtRecordVideo(gym.Wrapper, gym.utils.RecordConstructorArgs):
     """This wrapper records videos of rollouts.
 
