@@ -120,11 +120,13 @@ def main(
     """Train with skrl agent."""
     max_rollout_steps = agent_cfg['agent']['rollouts']
     print("Max Rollout steps:", max_rollout_steps)
+    assert args_cli.num_envs % args_cli.num_agents == 0, f'Number of agents {args_cli.num_agents} does not even divide into number of envs {args_cli.num_envs}'
+    env_per_agent = args_cli.num_envs // args_cli.num_agents
+    args_cli.max_steps += max_rollout_steps * env_per_agent - (args_cli.max_steps % (max_rollout_steps * env_per_agent))
 
     # check inputs
-    assert args_cli.max_steps % args_cli.num_envs == 0, f'Iterations must be a multiple of num_envs: {args_cli.max_steps % args_cli.num_envs}'
+    assert args_cli.max_steps % env_per_agent == 0, f'Iterations must be a multiple of num_envs: {env_per_agent}'
     assert args_cli.max_steps % max_rollout_steps == 0, f'Iterations must be multiple of max_rollout_steps {args_cli.max_steps % max_rollout_steps}'
-    assert args_cli.num_envs % args_cli.num_agents == 0, f'Number of agents {args_cli.num_agents} does not even divide into number of envs {args_cli.num_envs}'
     
     # override configurations with non-hydra CLI arguments
     env_cfg.scene.num_envs = args_cli.num_envs 
