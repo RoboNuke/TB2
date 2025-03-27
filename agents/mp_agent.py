@@ -141,9 +141,8 @@ class MPAgent():
             process.join()
         print("Destroyed MPAgent")
 
-    def __init__(self, agents, agents_scope=None):
-        self.agents = agents
-        self.num_agents = len(self.agents)
+    def __init__(self, num_agents, agents_scope=None):
+        self.num_agents = num_agents
         self.agents_scope = agents_scope
         self.queues = []
         self.producer_pipes = []
@@ -157,16 +156,6 @@ class MPAgent():
             self.producer_pipes.append(pipe_write)
             self.consumer_pipes.append(pipe_read)
             self.queues.append(mp.Queue())
-
-        # move tensors to shared memory
-        for agent in self.agents:
-            if agent.memory is not None:
-                agent.memory.share_memory()
-            for model in agent.models.values():
-                try:
-                    model.share_memory()
-                except RuntimeError:
-                    pass
 
 
         # spawn and wait for all processes to start
@@ -189,6 +178,19 @@ class MPAgent():
         #time.sleep(10)
         #assert 1 == 0
         print("Multiprocess Agents Created!")
+
+    def set_agents(self, agents):
+        self.agents = agents
+        
+        # move tensors to shared memory
+        for agent in self.agents:
+            if agent.memory is not None:
+                agent.memory.share_memory()
+            for model in agent.models.values():
+                try:
+                    model.share_memory()
+                except RuntimeError:
+                    pass
 
     
     def init(self, trainer_cfg):

@@ -43,6 +43,10 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
+  
+  logging_tags:
+    obs_type: "basic" # "basic", "policy_history", "history", "DMP"
+    act_type: "basic" # "basic", "predict_action", "DMP"
 
 video_tracking:
   # note to use this must run with --video --enable_cameras

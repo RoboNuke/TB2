@@ -41,6 +41,16 @@ if not args_cli.no_vids:
 # clear out sys.argv for Hydra
 sys.argv = [sys.argv[0]] + hydra_args
 
+
+from agents.mp_agent import MPAgent
+import torch.multiprocessing as mp
+# launch our threads before simulation app
+n = args_cli.num_envs // args_cli.num_agents
+agents_scope = [[i * n, (i+1) * n] for i in range(args_cli.num_agents)]
+
+#mp.set_start_method("spawn")
+mp_agent = MPAgent(args_cli.num_agents, agents_scope=agents_scope )
+
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -105,8 +115,8 @@ def main(
     agent_cfg: dict
 ):
     global evaluating
+    global mp_agent
 
-    mp.set_start_method("spawn")
     """Train with skrl agent."""
     max_rollout_steps = agent_cfg['agent']['rollouts']
     print("Max Rollout steps:", max_rollout_steps)
@@ -135,10 +145,12 @@ def main(
     if "ObsDMP" in args_cli.task:
         env_cfg.scene.ee_imu.update_period = 0.0 # update every step
         env_cfg.scene.ee_imu.history_length = dec
+        agent_cfg['agent']['logging_tags']['obs_type'] = "DMP"
 
     if "ActDMP" in args_cli.task:
         env_cfg.actions.arm_action.decimation = dec
         env_cfg.actions.arm_action.dmp_cfg.dt = sim_dt
+        agent_cfg['agent']['logging_tags']['act_type'] = "DMP"
 
     #print("Decimation:", dec)
     agent_cfgs = [copy.deepcopy(agent_cfg) for _ in range(args_cli.num_agents)]
@@ -336,11 +348,12 @@ def main(
         ) for i in range(args_cli.num_agents)
     ]
 
-    n = args_cli.num_envs // args_cli.num_agents
-    agents_scope = [[i * n, (i+1) * n] for i in range(args_cli.num_agents)]
+    #n = args_cli.num_envs // args_cli.num_agents
+    #agents_scope = [[i * n, (i+1) * n] for i in range(args_cli.num_agents)]
 
-    agent = MPAgent(agents=agent_list, agents_scope=agents_scope )
-    # TODO make scope and num agents a var
+    #agent = MPAgent(agents=agent_list, agents_scope=agents_scope )
+    mp_agent.set_agents(agent_list)
+    
     if vid:
         vid_env.set_agent(AgentList(agent_list, agents_scope=[2,2]))
 
@@ -354,7 +367,7 @@ def main(
     trainer = ExtSequentialTrainer(
         cfg = cfg_trainer,
         env = env,
-        agents = agent
+        agents = mp_agent
     )
 
     env.recording = vid # True
@@ -365,7 +378,7 @@ def main(
     if eval_vid:   
         vid_env.set_video_name(f"evals/eval_0")
     
-    #trainer.eval(0, vid_env)
+    trainer.eval(0, vid_env)
 
     for i in range(num_evals):
         print(f"Beginning epoch {i+1}/{num_evals}")

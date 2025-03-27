@@ -70,7 +70,7 @@ class WandbLoggerPPO(PPO):
             os.makedirs(os.path.join(self.experiment_dir, "checkpoints"), exist_ok=True)
 
         self.set_mode("eval")
-
+        
         # create tensors in memory
         if self.memory is not None:
             self.memory.create_tensor(name="states", size=self.observation_space, dtype=torch.float32)
