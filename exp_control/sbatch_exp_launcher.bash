@@ -8,5 +8,5 @@ echo "started"
 for env_idx in $(seq 0 $((num_exp_env - 1)))
 do
     echo "${names[$exp_idx]}_test"
-    sbatch -J "obs_test_${names[$exp_idx]}" -a=1-$num_exp_per_env exp_control/hpc_batch.bash $env_idx $num_agents 
+    sbatch -J "obs_test_${names[$exp_idx]}" -a 1-$num_exp_per_env exp_control/hpc_batch.bash $env_idx $num_agents 
 done
