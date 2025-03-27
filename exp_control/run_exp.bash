@@ -13,7 +13,8 @@ exp_idx=$1
 if [ "$exp_idx" -gt 4 ]; then
   exp_idx=0
 fi
-
+echo "Exp: ${names[$exp_idx]}"
+echo "Num Agents: $num_agents"
 python -m learning.single_agent_train \
     --headless \
     --task=${envs[$exp_idx]} \

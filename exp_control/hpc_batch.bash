@@ -19,4 +19,4 @@ echo "Array:" $SLURM_ARRAY_TASK_COUNT
 eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
 conda activate isaaclab
 
-bash "exp_control/hpc_launch.bash" $1 $2
+bash "exp_control/run_exp.bash" $1 $2
