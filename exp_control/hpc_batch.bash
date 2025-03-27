@@ -2,7 +2,7 @@
 ##SBATCH --array=1-2             # set up the array
 ##SBATCH -J SFPiH			    # name of job
 #SBATCH -A virl-grp	            # name of my sponsored account, e.g. class or research group, NOT ONID!
-#SBATCH -p dgx2,eecs2			# name of partition or queue
+#SBATCH -p eecs2			# name of partition or queue
 #SBATCH --time=6-12:00:00        # time limit on job: 2 days, 12 hours, 30 minutes (default 12 hours)
 ##SBATCH -N 1                   # number of nodes (default 1)
 #SBATCH --gres=gpu:1            # number of GPUs to request (default 0)
@@ -16,7 +16,7 @@
 echo "Job Name:" $SLURM_JOB_NAME
 echo "Array:" $SLURM_ARRAY_TASK_COUNT
 ##module load cuda/10.1
-#eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
-#conda activate isaaclab
+eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
+conda activate isaaclab
 
-#bash "exp_control/hpc_launch.bash" $1 $2
+bash "exp_control/hpc_launch.bash" $1 $2
