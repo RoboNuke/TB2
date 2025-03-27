@@ -26,6 +26,7 @@ parser.add_argument("--wandb_entity", type=str, default="hur", help="Name of wan
 parser.add_argument("--wandb_project", type=str, default="Tester", help="Name of wandb project")
 parser.add_argument("--wandb_api_key", type=str, default="-1", help="API key for WandB")
 parser.add_argument('--wandb_tags', nargs='*', default=[], help="WandB Tags to be applied to this run")
+parser.add_argument("--wandb_group", type=str, default=None, help="Group to organize wandb")
 
 
 # append AppLauncher cli args
@@ -333,6 +334,7 @@ def main(
             "entity":args_cli.wandb_entity,
             "api_key":args_cli.wandb_api_key,
             "tags":args_cli.wandb_tags,
+            "group":args_cli.wandb_group,
             "run_name":a_cfg["agent"]["experiment"]["experiment_name"]
         }
 

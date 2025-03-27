@@ -122,7 +122,8 @@ class WandbLoggerPPO(PPO):
             self.data_manager.init_new_run(
                 run_name=wandb_kwargs['run_name'],
                 config=wandb_config,
-                tags=wandb_kwargs['tags']
+                tags=wandb_kwargs['tags'],
+                group=wandb_kwargs['group']
             )
             self.log_wandb = True
 

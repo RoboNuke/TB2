@@ -32,19 +32,30 @@ class DataManager():
     def init_new_run(self, 
                      run_name, 
                      config,
-                     tags = []
+                     tags = [],
+                     group = None
         ):
         """
             Start a new run with tags in config
         """
         #print(run_name, config, tags)
-        wandb.init(entity=self.entity,
-                   project=self.project,
-                   name=run_name,
-                   config=config,
-                   tags = tags,
-                   settings=dict(start_method='thread'))
-        self.run_name = run_name
+        if group is None:
+            wandb.init(entity=self.entity,
+                    project=self.project,
+                    name=run_name,
+                    config=config,
+                    tags = tags,
+                    settings=dict(start_method='thread'))
+            self.run_name = run_name
+        else:
+            wandb.init(entity=self.entity,
+                    project=self.project,
+                    name=run_name,
+                    config=config,
+                    tags = tags,
+                    group=group,
+                    settings=dict(start_method='thread'))
+            self.run_name = run_name
 
     def add_scalar(self, 
                    data, 
