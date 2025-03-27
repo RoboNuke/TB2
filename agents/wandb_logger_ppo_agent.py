@@ -343,7 +343,7 @@ class WandbLoggerPPO(PPO):
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
                         else:
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
-
+                #print("m4 keys:", self.m4_returns.keys())
                 # add count stats for success and engagement
                 self.count_stats['success'] = torch.zeros(size=(states.shape[0],1), device=states.device)
                 #print("init:", self.count_stats['success'])
@@ -371,7 +371,7 @@ class WandbLoggerPPO(PPO):
                                 self.m4_returns[k][alive_mask] = rew[alive_mask]#(rew * alive_mask)
                             else:
                                 self.m4_returns[k] = rew
-                        else:
+                        else: # is this required?
                             if eval_mode:
                                 self.m4_returns[k] += (rew * alive_mask)
                             else:
@@ -409,6 +409,7 @@ class WandbLoggerPPO(PPO):
                 self.tracking_data[prefix + " Smoothness / Force (mean)"].append(
                     torch.mean(infos['smoothness']['Smoothness / Damage Force']).item()
                 )
+                
             for k, v in self.m4_returns.items():
                 if 'Force' not in k and 'Torque' not in k:
                     idx = k.index("/") + 1 

@@ -74,14 +74,28 @@ def fn_processor(process_index, *args):
                 _term_dist[key] = raw_term_dist[key][scope[0] : scope[1]]
 
             with torch.no_grad():
+                r = queue.get()[scope[0] : scope[1]]
+                ns = queue.get()[scope[0] : scope[1]]
+                ter = queue.get()[scope[0] : scope[1]]
+                tru = queue.get()[scope[0] : scope[1]]
+                info = queue.get()
+                red_info = {} # copy everything but 'smoothness
+                for key in info.keys():
+                    if not key == 'smoothness':
+                        red_info[key] = info[key]
+                    else:
+                        red_info['smoothness'] = {}
+                        for s_key in info['smoothness'].keys():
+                            red_info['smoothness'][s_key] = info['smoothness'][s_key][scope[0] : scope[1]]
+
                 agent.record_transition(
                     states=_states,
                     actions=_actions,
-                    rewards=queue.get()[scope[0] : scope[1]],
-                    next_states=queue.get()[scope[0] : scope[1]],
-                    terminated=queue.get()[scope[0] : scope[1]],
-                    truncated=queue.get()[scope[0] : scope[1]],
-                    infos=queue.get(),
+                    rewards=r,
+                    next_states=ns,
+                    terminated=ter,
+                    truncated=tru,
+                    infos=red_info,
                     timestep=msg["timestep"],
                     timesteps=msg["timesteps"],
                     reward_dist=_rew_dist,
@@ -251,20 +265,31 @@ class MPAgent():
                           alive_mask: torch.Tensor = None) -> None:
         if not rewards.is_cuda:
             rewards.share_memory_()
+
         if not next_states.is_cuda:
             next_states.share_memory_()
+
         if not terminated.is_cuda:
             terminated.share_memory_()
+
         if not truncated.is_cuda:
             truncated.share_memory_()
+
         if alive_mask is not None and not alive_mask.is_cuda:
             alive_mask.share_memory_()
+
         for rew_type in reward_dist.keys():
             if type(reward_dist[rew_type]) == torch.Tensor and not reward_dist[rew_type].is_cuda:
                 reward_dist[rew_type].share_memory_()
+
         for con in term_dist.keys():
             if not term_dist[con].is_cuda:
                 term_dist[con].share_memory_()
+
+        for big_key in infos.keys():
+            for key in infos[big_key].keys():
+                if type(infos[big_key][key]) == torch.Tensor and not infos[big_key][key].is_cuda:
+                    infos[big_key][key].share_memory_()
                 
         self.send(
             {
