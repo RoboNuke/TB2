@@ -271,6 +271,10 @@ class ObservationsCfg:
         hole_pose = ObsTerm(
             func=fac_mdp_obs.fixed_asset_pose
         )
+        
+        force_torque_reading = ObsTerm(
+            func=fac_mdp_obs.force_torque_sensor
+        )
 
 
         """ What factory Uses by default        
