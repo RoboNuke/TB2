@@ -4,6 +4,7 @@ gpu_path="exp_control/run_exp.bash"
 
 tmux new-session -d -s "$SESSION_NAME"
 tmux new-window -t "$SESSION_NAME":$i 
+#tmux send-keys -t "$SESSION_NAME":$i "conda activate env_isaacsim && "
 tmux send-keys -t "$SESSION_NAME":$i "conda activate isaaclab && "
 tmux send-keys -t "$SESSION_NAME":$i "bash $gpu_path " 
 tmux send-keys -t "$SESSION_NAME":$i "$*"
