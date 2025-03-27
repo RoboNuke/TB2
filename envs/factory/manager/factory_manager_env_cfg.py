@@ -268,9 +268,10 @@ class ObservationsCfg:
 
         prev_action = ObsTerm(func=mdp.last_action)
 
-        #hole_pose = ObsTerm(
-        #    func=fac_mdp_obs.fixed_asset_pose
-        #)
+        hole_pose = ObsTerm(
+            func=fac_mdp_obs.fixed_asset_pose
+        )
+
 
         """ What factory Uses by default        
             #"fingertip_pos": self.fingertip_midpoint_pos,

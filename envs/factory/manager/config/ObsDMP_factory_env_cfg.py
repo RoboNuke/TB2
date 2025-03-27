@@ -30,6 +30,10 @@ class DMPObservationsCfg:
 
         prev_action = ObsTerm(func=mdp.last_action)
 
+        hole_pose = ObsTerm(
+            func=fac_mdp_obs.fixed_asset_pose
+        )
+
         def __post_init__(self):
             self.enable_corruption = False
             self.concatenate_terms = True
