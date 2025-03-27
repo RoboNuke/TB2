@@ -122,14 +122,9 @@ def main(
     print("Max Rollout steps:", max_rollout_steps)
     assert args_cli.num_envs % args_cli.num_agents == 0, f'Number of agents {args_cli.num_agents} does not even divide into number of envs {args_cli.num_envs}'
     env_per_agent = args_cli.num_envs // args_cli.num_agents
-    print(args_cli.max_steps)
+    
     args_cli.max_steps += max_rollout_steps * env_per_agent - (args_cli.max_steps % (max_rollout_steps * env_per_agent))
-    print(args_cli.max_steps)
 
-    ckpt_int = agent_cfg["agent"]["experiment"]["checkpoint_interval"]
-    num_evals = max(1,args_cli.max_steps // (ckpt_int * env_per_agent))
-    print(num_evals)
-    assert 1 == 0
     # check inputs
     assert args_cli.max_steps % env_per_agent == 0, f'Iterations must be a multiple of num_envs: {env_per_agent}'
     assert args_cli.max_steps % max_rollout_steps == 0, f'Iterations must be multiple of max_rollout_steps {args_cli.max_steps % max_rollout_steps}'
