@@ -2,7 +2,7 @@
 ##SBATCH --array=1-2             # set up the array
 ##SBATCH -J SFPiH			    # name of job
 #SBATCH -A virl-grp	            # name of my sponsored account, e.g. class or research group, NOT ONID!
-#SBATCH -p mime5			# name of partition or queue
+#SBATCH -p gpu,eecs2			# name of partition or queue
 #SBATCH --time=4-23:00:00        # time limit on job: 2 days, 12 hours, 30 minutes (default 12 hours)
 ##SBATCH -N 1                   # number of nodes (default 1)
 #SBATCH --gres=gpu:1            # number of GPUs to request (default 0)
