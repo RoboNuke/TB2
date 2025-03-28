@@ -7,7 +7,7 @@
 ##SBATCH -N 1                   # number of nodes (default 1)
 #SBATCH --gres=gpu:1            # number of GPUs to request (default 0)
 #SBATCH --mem=32G               # request 10 gigabytes memory (per node, default depends on node)
-#SBATCH -c 16                   # number of cores/threads per task (default 1)
+#SBATCH -c 6                   # number of cores/threads per task (default 1)
 ##SBATCH --constraint=h100,v10
 #SBATCH -o ../outs/SFPiH_%A_%a.out		# name of output file for this submission script
 #SBATCH -e ../outs/SFPiH_%A_%a.err		# name of error file for this submission script
