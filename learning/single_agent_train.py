@@ -103,8 +103,8 @@ from agents.mp_agent import MPAgent
 import torch.multiprocessing as mp
 import copy
 # seed for reproducibility
-set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
-
+#set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
+set_seed(random.randint(0, 10000))
 #agent_cfg_entry_point = "skrl_cfg_entry_point"
 agent_cfg_entry_point = "BroNet_cfg_entry_point"
 #agent_cfg_entry_point = "rl_games_cfg_entry_point"
