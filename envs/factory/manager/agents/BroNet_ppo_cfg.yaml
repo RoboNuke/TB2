@@ -21,7 +21,7 @@ agent:
   mini_batches: 32 #500 # 128 steps / minibatch
   discount_factor: 0.99
   lambda: 0.99 #0.95
-  learning_rate: 5.0e-04
+  learning_rate: 5.0e-03
 
   # below are not args
   random_timesteps: 0
