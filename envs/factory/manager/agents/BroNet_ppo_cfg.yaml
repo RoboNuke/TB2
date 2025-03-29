@@ -21,7 +21,7 @@ agent:
   mini_batches: 100 #32 # 128 steps / minibatch 128 steps / minibatch (256 envs * 50 steps per update)
   discount_factor: 0.99
   lambda: 0.99 #0.95
-  learning_rate: 5.0e-04 # (optimized for PiH)
+  learning_rate: 1.0e-04 # (optimized for PiH)
 
   # below are not args
   random_timesteps: 0
