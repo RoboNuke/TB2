@@ -50,12 +50,13 @@ class ExtSequentialTrainer(Trainer):
         """
         _cfg = copy.deepcopy(EXT_SEQUENTIAL_TRAINER_DEFAULT_CONFIG)
         _cfg.update(cfg if cfg is not None else {})
+
         agents_scope = agents_scope if agents_scope is not None else []
         
         super().__init__(env=env, agents=agents, agents_scope=agents_scope, cfg=_cfg)
         
-        self.abs_agent = AgentList(self.agents, self.agents_scope, cfg=cfg)
-
+        self.abs_agent = AgentList(agents, self.agents_scope, cfg=cfg)
+        
         # init agents
         self.abs_agent.init(trainer_cfg=self.cfg)
         self.training_timestep = 0

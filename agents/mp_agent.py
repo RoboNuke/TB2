@@ -54,7 +54,7 @@ def fn_processor(process_index, *args):
                 _actions, _log_prob, _outputs = agent.act(_states, timestep=msg["timestep"], timesteps=msg["timesteps"])
                 if not _actions.is_cuda:
                     _actions.share_memory_()
-                if not _log_prob.is_cuda:
+                if _log_prob is not None and not _log_prob.is_cuda:
                     _log_prob.share_memory_()
                 if not _outputs['mean_actions'].is_cuda:
                     _outputs['mean_actions'].share_memory_()
@@ -246,7 +246,14 @@ class MPAgent():
             states.share_memory_()
         self.send({"task":"act", "timestep":timestep, "timesteps":timesteps}, [states])
         action = torch.vstack([queue.get() for queue in self.queues])
-        log_prob = torch.vstack([queue.get() for queue in self.queues])
+        
+        # SAC agent returns None instead of log prob, so this...
+        log_prob = []
+        for queue in self.queues:
+            log_prob.append(queue.get())
+        if log_prob[0] is not None:
+            log_prob = torch.vstack(log_prob)
+        
         outputs = torch.vstack([queue.get() for queue in self.queues]) # we assume we only care about mean actions, works for me :)
         return action, log_prob, {'mean_actions':outputs}
 

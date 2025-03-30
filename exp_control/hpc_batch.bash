@@ -1,6 +1,6 @@
 #!/bin/bash
 ##SBATCH --array=1-2             # set up the array
-#SBATCH -J MBS100			    # name of job
+##SBATCH -J MBS100			    # name of job
 #SBATCH -A virl-grp	            # name of my sponsored account, e.g. class or research group, NOT ONID!
 ##SBATCH -p gpu,eecs2,tiamat,dgxh,dgx2,ampere		# name of partition or queue
 #SBATCH -p eecs,eecs2,tiamat,gpu,dgx2
@@ -19,4 +19,4 @@ echo "Array:" $SLURM_ARRAY_TASK_COUNT
 eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
 conda activate isaaclab
 
-bash "exp_control/run_exp.bash" $1 $2
+bash "exp_control/run_exp.bash" $1 $2 $3

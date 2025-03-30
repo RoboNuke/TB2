@@ -1,0 +1,58 @@
+seed: 42
+num_envs: 256
+
+# this is the parameters for the BroNet shared model
+models:
+  force_encoding: None
+  act_init_std: 0.25 #0.60653066
+  critic:
+    n: 2
+    latent_size: 512
+  actor:
+    n: 2
+    latent_size: 512
+
+agent:
+  class: SAC
+  gradient_steps: 2 # 1
+  batch_size: 128 # 64
+  discount_factor: 0.99
+  polyak: 0.005
+
+  actor_learning_rate: 1.0e-3
+  critic_learning_rate: 1.0e-3
+  
+  random_timesteps: 0
+  learning_starts: 0
+
+  grad_norm_clip: 0
+
+  learn_entropy: True
+  entropy_learning_rate: 1.0e-3
+  initial_entropy_value: 0.2
+  #target_entropy: None
+
+  #unique/adapted for my pipeline
+  rollouts: 50
+  agent_is_list: False
+  # logging and checkpoint
+  experiment:
+    directory: "Tests"
+    experiment_name: "test"
+    write_interval: 50 #75
+    checkpoint_interval: 2000
+  
+  logging_tags:
+    obs_type: "basic" # "basic", "policy_history", "history", "DMP"
+    act_type: "basic" # "basic", "predict_action", "DMP"
+
+video_tracking:
+  # note to use this must run with --video --enable_cameras
+  record_training: True
+  train_video_interval: 450
+  record_evals: True
+  video_length: 50
+
+
+defaults:
+  - override hydra/job_logging: custom

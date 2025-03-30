@@ -5,6 +5,7 @@ from omni.isaac.lab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Train an RL agent with skrl.")
+
 # exp
 parser.add_argument("--task", type=str, default="TB2-FPiH-Franka-Rel_IK-v0", help="Name of the task.")
 parser.add_argument("--num_envs", type=int, default=256, help="Number of environments to simulate.")
@@ -12,6 +13,8 @@ parser.add_argument("--seed", type=int, default=1, help="Seed used for the envir
 parser.add_argument("--max_steps", type=int, default=10240000, help="RL Policy training iterations.")
 parser.add_argument("--force_encoding", type=str, default=None, help="Which type of force encoding to use if force is included")
 parser.add_argument("--num_agents", type=int, default=1, help="How many agents to train in parallel")
+parser.add_argument("--learning_method", type=str, default="ppo", help="Which learning approach to use, currently ppo and sac are supported")
+
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")
 parser.add_argument("--exp_dir", type=str, default=None, help="Directory to store the experiment in")
@@ -43,14 +46,16 @@ if not args_cli.no_vids:
 sys.argv = [sys.argv[0]] + hydra_args
 
 
+# launch our threads before simulation app
 from agents.mp_agent import MPAgent
 import torch.multiprocessing as mp
-# launch our threads before simulation app
-n = args_cli.num_envs // args_cli.num_agents
-agents_scope = [[i * n, (i+1) * n] for i in range(args_cli.num_agents)]
+mp_agent = None
+if args_cli.num_agents > 1:
+    n = args_cli.num_envs // args_cli.num_agents
+    agents_scope = [[i * n, (i+1) * n] for i in range(args_cli.num_agents)]
 
-#mp.set_start_method("spawn")
-mp_agent = MPAgent(args_cli.num_agents, agents_scope=agents_scope )
+    #mp.set_start_method("spawn")
+    mp_agent = MPAgent(args_cli.num_agents, agents_scope=agents_scope )
 
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
@@ -75,9 +80,11 @@ from learning.ext_sequential_trainer import ExtSequentialTrainer, EXT_SEQUENTIAL
 from wrappers.smoothness_obs_wrapper import SmoothnessObservationWrapper
 from wrappers.close_gripper_action_wrapper import GripperCloseEnv
 from models.default_mixin import Shared
-from models.bro_model import BroAgent
+from models.bro_model import BroAgent, BroActor, BroCritic
 from wrappers.DMP_observation_wrapper import DMPObservationWrapper
 from agents.agent_list import AgentList
+from skrl.agents.torch.sac import SAC, SAC_DEFAULT_CONFIG
+from skrl.agents.torch.ppo import PPO, PPO_DEFAULT_CONFIG
 
 from omni.isaac.lab.envs import (
     DirectMARLEnv,
@@ -96,6 +103,7 @@ import envs.factory.manager
 from omni.isaac.lab_tasks.utils.hydra import hydra_task_config
 from omni.isaac.lab_tasks.utils.wrappers.skrl import SkrlVecEnvWrapper
 from agents.wandb_logger_ppo_agent import WandbLoggerPPO
+from agents.wandb_logger_sac_agent import WandbLoggerSAC
 
 from tests.learning.toy_mdp import PrintActivity
 from wrappers.info_video_recorder_wrapper import InfoRecordVideo
@@ -106,7 +114,7 @@ import copy
 #set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
 set_seed(random.randint(0, 10000))
 #agent_cfg_entry_point = "skrl_cfg_entry_point"
-agent_cfg_entry_point = "BroNet_cfg_entry_point"
+agent_cfg_entry_point = f"BroNet_{args_cli.learning_method}_cfg_entry_point"
 #agent_cfg_entry_point = "rl_games_cfg_entry_point"
 evaluating = False
 
@@ -309,22 +317,9 @@ def main(
     # instantiate the agent's models (function approximators).
     # PPO requires 2 models, visit its documentation for more details
     # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html#models
-    model = {}
+    models = {}
     #models["policy"] = Shared(env.observation_space, env.action_space, device)
     
-    
-    model['policy'] = BroAgent(
-        observation_space=env.observation_space, 
-        action_space=env.action_space,
-        device=device,
-        act_init_std = agent_cfg['models']['act_init_std'],
-        force_type = args_cli.force_encoding,
-        critic_n = agent_cfg['models']['critic']['n'],
-        critic_latent = agent_cfg['models']['critic']['latent_size'],
-        actor_n = agent_cfg['models']['actor']['n'],
-        actor_latent = agent_cfg['models']['actor']['latent_size']
-    ) 
-    model["value"] = model["policy"]  # same instance: shared model
     
     # set wandb parameters
     for a_cfg in agent_cfgs:
@@ -339,26 +334,78 @@ def main(
         }
 
         a_cfg["agent"]["experiment"]["wandb_kwargs"] = wandb_kwargs
-    # create the agent
-    #agent = WandbLoggerPPO(models=models,
-    agent_list = [
-        WandbLoggerPPO(
-            models=copy.deepcopy(model),
-            memory=copy.deepcopy(memory),
-            cfg=agent_cfgs[i]['agent'],
-            observation_space=env.observation_space,
-            action_space=env.action_space,
-            num_envs=args_cli.num_envs // args_cli.num_agents,
-            device=device
-        ) for i in range(args_cli.num_agents)
-    ]
-
-    #n = args_cli.num_envs // args_cli.num_agents
-    #agents_scope = [[i * n, (i+1) * n] for i in range(args_cli.num_agents)]
-
-    #agent = MPAgent(agents=agent_list, agents_scope=agents_scope )
-    mp_agent.set_agents(agent_list)
     
+    agent_list = None
+    if args_cli.learning_method == "ppo":
+        print("Have a ppo actor")
+        models['policy'] = BroAgent(
+            observation_space=env.observation_space, 
+            action_space=env.action_space,
+            device=device,
+            act_init_std = agent_cfg['models']['act_init_std'],
+            force_type = args_cli.force_encoding,
+            critic_n = agent_cfg['models']['critic']['n'],
+            critic_latent = agent_cfg['models']['critic']['latent_size'],
+            actor_n = agent_cfg['models']['actor']['n'],
+            actor_latent = agent_cfg['models']['actor']['latent_size']
+        ) 
+        models["value"] = models["policy"]  # same instance: shared model
+        # create the agent
+        #agent = WandbLoggerPPO(models=models,
+        agent_list = [
+            WandbLoggerPPO(
+                models=copy.deepcopy(models),
+                memory=copy.deepcopy(memory),
+                cfg=agent_cfgs[i]['agent'],
+                observation_space=env.observation_space,
+                action_space=env.action_space,
+                num_envs=args_cli.num_envs // args_cli.num_agents,
+                device=device
+            ) for i in range(args_cli.num_agents)
+        ]
+    elif args_cli.learning_method == "sac":
+        print("Have a sac actor")
+        models['policy'] = BroActor(
+            observation_space=env.observation_space, 
+            action_space=env.action_space,
+            device=device,
+            act_init_std = agent_cfg['models']['act_init_std'],
+            force_type = args_cli.force_encoding,
+            actor_n = agent_cfg['models']['actor']['n'],
+            actor_latent = agent_cfg['models']['actor']['latent_size']
+        ) 
+        models["critic_1"] = BroCritic(
+            observation_space=env.observation_space, 
+            action_space=env.action_space,
+            force_type = args_cli.force_encoding,
+            device=device,
+            critic_n = agent_cfg['models']['critic']['n'],
+            critic_latent = agent_cfg['models']['critic']['latent_size']
+        )
+        models["critic_2"] = copy.deepcopy(models["critic_1"])
+        models["target_critic_1"] = copy.deepcopy(models["critic_1"])
+        models["target_critic_2"] = copy.deepcopy(models["critic_1"])
+        # create the agent
+        #agent = WandbLoggerPPO(models=models,
+        agent_list = [
+            WandbLoggerSAC(
+                models=copy.deepcopy(models),
+                memory=copy.deepcopy(memory),
+                cfg=agent_cfgs[i]['agent'],
+                observation_space=env.observation_space,
+                action_space=env.action_space,
+                num_envs=args_cli.num_envs // args_cli.num_agents,
+                device=device
+            ) for i in range(args_cli.num_agents)
+        ]
+
+    agents = None
+    if args_cli.num_agents > 1:
+        mp_agent.set_agents(agent_list)
+        agents = mp_agent
+    else:
+        agents = agent_list
+        
     if vid:
         vid_env.set_agent(AgentList(agent_list, agents_scope=[2,2]))
 
@@ -372,7 +419,7 @@ def main(
     trainer = ExtSequentialTrainer(
         cfg = cfg_trainer,
         env = env,
-        agents = mp_agent
+        agents = agents
     )
 
     env.recording = vid # True
