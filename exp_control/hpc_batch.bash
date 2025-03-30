@@ -1,6 +1,6 @@
 #!/bin/bash
 ##SBATCH --array=1-2             # set up the array
-#SBATCH -J SAC001			    # name of job
+#SBATCH -J SAC0001			    # name of job
 #SBATCH -A virl-grp	            # name of my sponsored account, e.g. class or research group, NOT ONID!
 ##SBATCH -p gpu,eecs2,tiamat,dgxh,dgx2,ampere		# name of partition or queue
 #SBATCH -p eecs,eecs2,tiamat,gpu,dgx2
