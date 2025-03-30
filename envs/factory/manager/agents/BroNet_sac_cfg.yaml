@@ -33,7 +33,7 @@ agent:
   #target_entropy: None
 
   #unique/adapted for my pipeline
-  rollouts: 1000000 
+  rollouts: 100000
   agent_is_list: False
   # logging and checkpoint
   experiment:
