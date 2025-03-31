@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --array=1-100             # set up the array
+##SBATCH --array=1-100             # set up the array
 #SBATCH -J PARAM			    # name of job
 #SBATCH -A virl-grp	            # name of my sponsored account, e.g. class or research group, NOT ONID!
 ##SBATCH -p gpu,eecs2,tiamat,dgxh,dgx2,ampere		# name of partition or queue
