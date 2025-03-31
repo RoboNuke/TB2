@@ -19,10 +19,10 @@
 eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
 conda activate isaaclab
 
-#free_memory=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits)
-#numeric_string="${free_memory//[^0-9]/}"
-#int_free=$((numeric_string))
-
+free_memory=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits)
+numeric_string="${free_memory//[^0-9]/}"
+int_free=$((numeric_string))
+echo "Free memory:$int_free"
 #if (( int_free > 8000 )); then
 #    echo "8 parallel it is"
 #    #bash "exp_control/run_exp.bash" $1 8 $2
