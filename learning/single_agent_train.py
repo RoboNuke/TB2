@@ -444,7 +444,7 @@ def main(
     if eval_vid:   
         vid_env.set_video_name(f"evals/eval_0")
     
-    #trainer.eval(0, vid_env)
+    trainer.eval(0, vid_env)
 
     for i in range(num_evals):
         print(f"Beginning epoch {i+1}/{num_evals}")
