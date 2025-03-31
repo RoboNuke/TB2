@@ -174,7 +174,7 @@ def main(
     agent_cfg['agent']['learning_rate_scheduler_kwargs']['kl_threshold'] = np.random.uniform(low=0.005, high=0.05)
     agent_cfg['agent']['entropy_loss_scale'] = np.random.uniform(low=0.0000005, high=0.00005)
     agent_cfg['models']['act_init_std'] = np.random.uniform(low=0.15, high=0.35)
-    agent_cfg['agent']['mini_batches'] = np.random.choice([200, 100, 50])
+    agent_cfg['agent']['mini_batches'] = int(np.random.choice([200, 100, 50]))
     agent_cfg['agent']['learning_rate'] = np.random.choice([0.0001, 0.00005])
     
 
@@ -444,7 +444,7 @@ def main(
     if eval_vid:   
         vid_env.set_video_name(f"evals/eval_0")
     
-    trainer.eval(0, vid_env)
+    #trainer.eval(0, vid_env)
 
     for i in range(num_evals):
         print(f"Beginning epoch {i+1}/{num_evals}")
