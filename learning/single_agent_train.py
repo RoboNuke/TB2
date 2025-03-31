@@ -169,14 +169,17 @@ def main(
 
     # random sample some parameters
     import numpy as np
-    
+    agent_cfg['agent']['param_space'] = {}
     agent_cfg['agent']['learning_rate_scheduler'] = KLAdaptiveLR
     agent_cfg['agent']['learning_rate_scheduler_kwargs']['kl_threshold'] = np.random.uniform(low=0.005, high=0.05)
+    agent_cfg['agent']['param_space']['kl_threshold'] = agent_cfg['agent']['learning_rate_scheduler_kwargs']['kl_threshold']
     agent_cfg['agent']['entropy_loss_scale'] = np.random.uniform(low=0.0000005, high=0.00005)
+    agent_cfg['agent']['param_space']['entropy_loss_scale'] = agent_cfg['agent']['entropy_loss_scale']
     agent_cfg['models']['act_init_std'] = np.random.uniform(low=0.15, high=0.35)
+    agent_cfg['agent']['param_space']['act_init_std'] = agent_cfg['models']['act_init_std']
     #agent_cfg['agent']['mini_batches'] = int(np.random.choice([200, 100, 50]))
     agent_cfg['agent']['learning_rate'] = np.random.choice([0.0001, 0.00005])
-    
+    agent_cfg['agent']['param_space']['learning_rate'] = agent_cfg['agent']['learning_rate']
 
     #print("Decimation:", dec)
     agent_cfgs = [copy.deepcopy(agent_cfg) for _ in range(args_cli.num_agents)]
