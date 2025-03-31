@@ -23,6 +23,9 @@ agent:
   lambda: 0.99 #0.95
   learning_rate: 1.0e-04 # (optimized for PiH)
 
+  learning_rate_scheduler: KLAdaptiveLR
+  learning_rate_scheduler_kwargs:
+    kl_threshold: 0.01
   # below are not args
   random_timesteps: 0
   learning_starts: 0

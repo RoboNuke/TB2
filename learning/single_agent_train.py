@@ -110,6 +110,8 @@ from wrappers.info_video_recorder_wrapper import InfoRecordVideo
 from agents.mp_agent import MPAgent
 import torch.multiprocessing as mp
 import copy
+from skrl.resources.schedulers.torch import KLAdaptiveLR
+
 # seed for reproducibility
 #set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
 set_seed(random.randint(0, 10000))
@@ -163,6 +165,18 @@ def main(
         env_cfg.actions.arm_action.decimation = dec
         env_cfg.actions.arm_action.dmp_cfg.dt = sim_dt
         agent_cfg['agent']['logging_tags']['act_type'] = "DMP"
+
+
+    # random sample some parameters
+    import numpy as np
+    
+    agent_cfg['agent']['learning_rate_scheduler'] = KLAdaptiveLR
+    agent_cfg['agent']['learning_rate_scheduler_kwargs']['kl_threshold'] = np.random.uniform(low=0.005, high=0.05)
+    agent_cfg['agent']['entropy_loss_scale'] = np.random.uniform(low=0.0000005, high=0.00005)
+    agent_cfg['models']['act_init_std'] = np.random.uniform(low=0.15, high=0.35)
+    agent_cfg['agent']['mini_batches'] = np.random.choice([200, 100, 50])
+    agent_cfg['agent']['learning_rate'] = np.random.choice([0.0001, 0.00005])
+    
 
     #print("Decimation:", dec)
     agent_cfgs = [copy.deepcopy(agent_cfg) for _ in range(args_cli.num_agents)]
@@ -404,7 +418,7 @@ def main(
         mp_agent.set_agents(agent_list)
         agents = mp_agent
     else:
-        agents = agent_list
+        agents = agent_list[0]
         
     if vid:
         vid_env.set_agent(AgentList(agent_list, agents_scope=[2,2]))
@@ -415,7 +429,7 @@ def main(
         "headless": True,
         "close_environment_at_exit": True
     }
-
+    
     trainer = ExtSequentialTrainer(
         cfg = cfg_trainer,
         env = env,
