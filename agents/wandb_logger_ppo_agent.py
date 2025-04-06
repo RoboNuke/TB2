@@ -329,7 +329,6 @@ class WandbLoggerPPO(PPO):
                 self.m4_returns = {}
                 self.count_stats = {}
                 self.old_rewards = {}
-
                 #print('Termination Keys')
                 for info_key in infos.keys():
                     if not (type(infos[info_key]) == dict):
@@ -341,6 +340,8 @@ class WandbLoggerPPO(PPO):
                             self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
                         elif key.startswith("Episode_Reward"):
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
+                        elif key.startswith("Curriculum"):
+                            pass
                         else:
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
                 #print("m4 keys:", self.m4_returns.keys())
@@ -376,6 +377,8 @@ class WandbLoggerPPO(PPO):
                                 self.m4_returns[k] += (rew * alive_mask)
                             else:
                                 self.m4_returns[k] += rew
+                    elif k.startswith("Curriculum"): # just directly publish curriculum data
+                        self.data_manager.add_scalar({k:v}, timestep * self.num_envs)
                     else: # it is a count stats key 
                         key = k.split("/")[-1]
                         if 'success' in k or 'engaged' in k:

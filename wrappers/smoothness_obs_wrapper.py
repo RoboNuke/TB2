@@ -64,8 +64,10 @@ class SmoothnessObservationWrapper(gym.Wrapper):
         self.old_acc = qacc
 
         # force 
-        self.obs['Smoothness / Damage Force'][:,0] = torch.linalg.norm(observation['info']['dmg_force'][:,:3], axis=1) # look at only force
-        self.obs['Smoothness / Damage Torque'][:,0] = torch.linalg.norm(observation['info']['dmg_force'][:,3:], axis=1) 
+        #print("Dmg force size:", observation['info']['dmg_force'].size())
+        #print(torch.max( torch.linalg.norm(observation['info']['dmg_force'][:,:,:3], axis=2), 1)[0])
+        self.obs['Smoothness / Damage Force'][:,0] = torch.max( torch.linalg.norm(observation['info']['dmg_force'][:,:,:3], axis=2), 1)[0] # look at only force
+        self.obs['Smoothness / Damage Torque'][:,0] =torch.max( torch.linalg.norm(observation['info']['dmg_force'][:,:,3:], axis=2), 1)[0]
 
         info['smoothness'] = self.obs
         

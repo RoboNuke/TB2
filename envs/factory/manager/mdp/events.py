@@ -100,6 +100,8 @@ def init_tensors(
     env.fixed_quat = fixed_asset.data.root_link_quat_w
 
     env.cfg_task = task_cfg
+    # initial z_low is 1mm above success
+    env.z_low = env.cfg_task.success_threshold * env.cfg_task.fixed_asset_cfg.height+0.001 + env.cfg_task.fixed_asset_cfg.base_height 
 
     # get offsets of held object in local frame
     held_base_x_offset = 0.0
@@ -203,10 +205,11 @@ def reset_held_asset(
     translated_held_asset_quat, translated_held_asset_pos = torch_utils.tf_combine(
         q1=fingertip_flipped_quat, t1=fingertip_flipped_pos, q2=asset_in_hand_quat, t2=asset_in_hand_pos
     )
-
+    
     # Add asset in hand randomization
-    rand_sample = torch.rand((env.num_envs, 3), dtype=torch.float32, device=env.device) * 0.0
-    env.held_asset_pos_noise = 2 * (rand_sample - 0.5)  # [-1, 1]
+    # TODO review this randomization
+    rand_sample = torch.rand((env.num_envs, 3), dtype=torch.float32, device=env.device) 
+    env.held_asset_pos_noise = 0*2 * (rand_sample - 0.5)  # [-1, 1]
     if env.cfg_task.name == "gear_mesh":
         env.held_asset_pos_noise[:, 2] = -rand_sample[:, 2]  # [-1, 0]
 
@@ -230,13 +233,13 @@ def reset_held_asset(
 
     grasp_time = 0.0
     ctrl_target_joint_pos = robot.data.joint_pos.clone()
-    ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
-    while grasp_time < 0.25:
-        robot.set_joint_position_target(ctrl_target_joint_pos)
-        step_sim_no_action(env)
-        grasp_time += env.sim.get_physics_dt()
+    #ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
+    #while grasp_time < 0.25:
+    #    robot.set_joint_position_target(ctrl_target_joint_pos)
+    #    step_sim_no_action(env)
+    #    grasp_time += env.sim.get_physics_dt()
 
-    physics_sim_view.set_gravity(carb.Float3(*env.cfg.sim.gravity))
+    #physics_sim_view.set_gravity(carb.Float3(*env.cfg.sim.gravity))
     
     # Zero initial velocity.
     env.ee_angvel_fd[:, :] = 0.0
@@ -246,7 +249,6 @@ def init_imu(
     env: ManagerBasedRLEnv,
     env_ids: torch.Tensor
 ):
-    print("imu init")
     env.traj_data = torch.zeros((env.num_envs, 19*env.cfg.decimation), device=env.device)
     #env.scene['ee_imu']
 
@@ -259,8 +261,33 @@ def reset_franka_above_fixed(
     fixed_tip_pos_local[:, 2] += env.cfg_task.fixed_asset_cfg.height
     fixed_tip_pos_local[:, 2] += env.cfg_task.fixed_asset_cfg.base_height
 
+    # get fingertip offset
+    held_asset_relative_pos, _ = get_handheld_asset_relative_pose(env)
+    fixed_tip_pos_local += held_asset_relative_pos
+
+    # lowest the finger tip is allowed to be for curriculum
+    min_fingertip_z = (
+        torch.tensor([0.0, 0.0, env.z_low], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
+    ) + held_asset_relative_pos
+    # the height of the fingertip on success, plus 1 mm so we don't start in successful position
+    #success_fingertip_z = 0.001 + env.cfg_task.success_threshold * env.cfg_task.fixed_asset_cfg.height #- held_asset_offset_pos[:,2]
+    # the height of engagement + 1 mm so we can start just above the hole
+    efz = 0.001 + env.cfg_task.fixed_asset_cfg.height 
+    engage_fingertip_z= (
+        torch.tensor([0.0, 0.0, efz], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
+    ) + held_asset_relative_pos
+
     _, fixed_tip_pos = torch_utils.tf_combine(
         env.fixed_quat, env.fixed_pos, env.identity_quat, fixed_tip_pos_local
+    )
+
+    # move min_z to correct frame
+    _, fixed_tip_min_z = torch_utils.tf_combine(
+        env.fixed_quat, env.fixed_pos, env.identity_quat, min_fingertip_z
+    )
+
+    _, fixed_tip_engage_z = torch_utils.tf_combine(
+        env.fixed_quat, env.fixed_pos, env.identity_quat, engage_fingertip_z
     )
 
     bad_envs = env_ids.clone()
@@ -276,28 +303,49 @@ def reset_franka_above_fixed(
         robot.data.body_link_pos_w[:, env.fingertip_body_idx] - env.scene.env_origins
     )
     goal_fingertip_midpoint_quat = robot.data.body_link_quat_w[:, env.fingertip_body_idx]
-
+    
     while True:
         n_bad = bad_envs.shape[0]
-
+        
         above_fixed_pos = fixed_tip_pos.clone()
-        above_fixed_pos[:, 2] += env.cfg_task.hand_init_pos[2]
+        above_fixed_pos[:, 2] = above_fixed_pos[:, 2] + env.cfg_task.hand_init_pos[2] # this is the maximum height allowed
 
         rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=env.device)
+        #rand_sample = torch.tensor([[0.8, 0.5804, 0.7685]], device=env.device)
+        above_fixed_pos_rand = torch.zeros_like(rand_sample)
+        #above_fixed_pos_rand[:,:2] = 2 * (rand_sample[:,:2] - 0.5)  # [-1, 1]
         above_fixed_pos_rand = 2 * (rand_sample - 0.5)  # [-1, 1]
+
+        # generate pos offsets
         hand_init_pos_rand = torch.tensor(env.cfg_task.hand_init_pos_noise, device=env.device)
         above_fixed_pos_rand = above_fixed_pos_rand @ torch.diag(hand_init_pos_rand)
-        above_fixed_pos[bad_envs] += above_fixed_pos_rand
+        #above_fixed_pos_rand[:,2] = rand_sample[:,2]
+        
+        # sample height
+        above_fixed_pos_rand[:,2] = (above_fixed_pos[bad_envs,2] - fixed_tip_min_z[bad_envs,2]) * rand_sample[:,2] + fixed_tip_min_z[bad_envs,2]
+        
 
+        #engaged_idxs = torch.zeros_like(above_fixed_pos_rand)
+        engaged_idxs = (above_fixed_pos_rand[:,2] < engage_fingertip_z[bad_envs,2])
+        #engaged_idxs[above_fixed_pos_rand[:,2] < engage_fingertip_z[bad_envs,2]]
+        above_fixed_pos_rand[engaged_idxs,:2] *= 0.0 # keep held asset centered if engaged
+        #above_fixed_pos += above_fixed_pos_rand
+        above_fixed_pos[bad_envs,:2] += above_fixed_pos_rand[:,:2]
+        above_fixed_pos[bad_envs,2] = above_fixed_pos_rand[:,2]
+        
         # (b) get random orientation facing down
         hand_down_euler = (
             torch.tensor(env.cfg_task.hand_init_orn, device=env.device).unsqueeze(0).repeat(n_bad, 1)
         )
 
-        rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=env.device)
+        rand_sample = 0.0 * torch.rand((n_bad, 3), dtype=torch.float32, device=env.device)
         above_fixed_orn_noise = 2 * (rand_sample - 0.5)  # [-1, 1]
         hand_init_orn_rand = torch.tensor(env.cfg_task.hand_init_orn_noise, device=env.device)
         above_fixed_orn_noise = above_fixed_orn_noise @ torch.diag(hand_init_orn_rand)
+
+        # set noise to zero on engaged held assets
+        #above_fixed_orn_noise[engaged_idxs,:] *= 0.0
+
         hand_down_euler += above_fixed_orn_noise
         env.hand_down_euler[bad_envs, ...] = hand_down_euler
         hand_down_quat[bad_envs, :] = torch_utils.quat_from_euler_xyz(
@@ -330,7 +378,7 @@ def reset_franka_above_fixed(
         )
 
         ik_attempt += 1
-        print(f"IK Attempt: {ik_attempt}\tBad Envs: {bad_envs.shape[0]}")
+        #print(f"IK Attempt: {ik_attempt}\tBad Envs: {bad_envs.shape[0]}")
 
     step_sim_no_action(env)
 
@@ -403,6 +451,7 @@ def reset_fixed_asset(
     
     # poses
     pose_range = {}
+    
     pose_range['x'] = (-env.cfg_task.fixed_asset_init_pos_noise[0], env.cfg_task.fixed_asset_init_pos_noise[0])
     pose_range['y'] = (-env.cfg_task.fixed_asset_init_pos_noise[1], env.cfg_task.fixed_asset_init_pos_noise[1])
     pose_range['yaw'] = (
@@ -414,6 +463,8 @@ def reset_fixed_asset(
     
     ranges = torch.tensor(range_list, device=asset.device)
     rand_samples = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (len(env_ids), 6), device=asset.device)
+    #rand_samples = torch.tensor([[-0.0067,  0.0467,  0.0000,  0.0000,  0.0000, -2.1350]], device=env.device)
+    #print("Fixed:", rand_samples)
     orientations_delta = math_utils.quat_from_euler_xyz(rand_samples[:, 3], rand_samples[:, 4], rand_samples[:, 5])
     states = states.unsqueeze(-1)
 
@@ -488,7 +539,7 @@ def step_sim_no_action(env):
     compute_keypoint_value(env)#, dt=env.physics_dt)
 
 def get_handheld_asset_relative_pose(env):
-    """Get default relative pose between help asset and fingertip."""
+    """Get default relative pose between help asset and fingertip. Robots perspective?"""
     if env.cfg_task.name == "peg_insert":
         held_asset_relative_pos = torch.tensor([0.0, 0.0, 0.0], device=env.device).repeat((env.num_envs, 1))
         held_asset_relative_pos[:, 2] = env.cfg_task.held_asset_cfg.height
@@ -529,9 +580,9 @@ def compute_keypoint_value(
         dt = 0.0
         return
     #print((now - env.time_keypoint_update), env.sim.cfg.dt * (env.cfg.decimation-1))
-    if dt < env.sim.cfg.dt * (env.cfg.decimation-1):
+    #if dt < env.sim.cfg.dt * (env.cfg.decimation-1):
+    if dt < env.physics_dt:# - 1e-6:
         return
-    #print("Calculating")
     env.time_keypoint_update = now
     
     robot: Articulation = env.scene["robot"]

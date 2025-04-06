@@ -14,6 +14,7 @@ parser.add_argument("--max_steps", type=int, default=10240000, help="RL Policy t
 parser.add_argument("--force_encoding", type=str, default=None, help="Which type of force encoding to use if force is included")
 parser.add_argument("--num_agents", type=int, default=1, help="How many agents to train in parallel")
 parser.add_argument("--learning_method", type=str, default="ppo", help="Which learning approach to use, currently ppo and sac are supported")
+parser.add_argument("--dmp_obs", default=False, action="store_true", help="Should we use dmps for the observation space")
 
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")
@@ -156,7 +157,7 @@ def main(
     env_cfg.decimation = dec
     env_cfg.sim.render_interval = dec
     
-    if "ObsDMP" in args_cli.task:
+    if args_cli.dmp_obs:
         env_cfg.scene.ee_imu.update_period = 0.0 # update every step
         env_cfg.scene.ee_imu.history_length = dec
         agent_cfg['agent']['logging_tags']['obs_type'] = "DMP"
@@ -168,9 +169,9 @@ def main(
 
 
     # random sample some parameters
-    import numpy as np
-    agent_cfg['agent']['param_space'] = {}
     agent_cfg['agent']['learning_rate_scheduler'] = KLAdaptiveLR
+    """import numpy as np
+    agent_cfg['agent']['param_space'] = {}
     agent_cfg['agent']['learning_rate_scheduler_kwargs']['kl_threshold'] = np.random.uniform(low=0.005, high=0.05)
     agent_cfg['agent']['param_space']['kl_threshold'] = agent_cfg['agent']['learning_rate_scheduler_kwargs']['kl_threshold']
     agent_cfg['agent']['entropy_loss_scale'] = np.random.uniform(low=0.0000005, high=0.00005)
@@ -180,6 +181,7 @@ def main(
     #agent_cfg['agent']['mini_batches'] = int(np.random.choice([200, 100, 50]))
     agent_cfg['agent']['learning_rate'] = np.random.choice([0.0001, 0.00005])
     agent_cfg['agent']['param_space']['learning_rate'] = agent_cfg['agent']['learning_rate']
+    """
 
     #print("Decimation:", dec)
     agent_cfgs = [copy.deepcopy(agent_cfg) for _ in range(args_cli.num_agents)]
@@ -259,7 +261,7 @@ def main(
         render_mode="rgb_array" if vid else None
     )
     
-    if vid:
+    if False: #vid:
         # TODO: Setup dynamic config
         vid_fps = int(1.0 / (env.cfg.sim.dt * env.cfg.sim.render_interval ))
 
@@ -299,8 +301,7 @@ def main(
         print("\n\n[INFO] Recording Smoothness Metrics in info.\n\n")
         env = SmoothnessObservationWrapper(env)
         
-    #if args_cli.dmp_obs:
-    if "ObsDMP" in args_cli.task:
+    if args_cli.dmp_obs:
         print("\n\n[INFO] Using DMP observation wrapper.\n\n")
         env = DMPObservationWrapper(
             env=env,
@@ -422,9 +423,10 @@ def main(
         agents = mp_agent
     else:
         agents = agent_list[0]
-        
-    if vid:
-        vid_env.set_agent(AgentList(agent_list, agents_scope=[2,2]))
+
+    #TODO undo for vids later   
+    #if vid:
+    #    vid_env.set_agent(AgentList(agent_list, agents_scope=[2,2]))
 
     # configure and instantiate the RL trainer
     cfg_trainer = {
@@ -439,14 +441,16 @@ def main(
         agents = agents
     )
 
-    env.recording = vid # True
+    env.cfg.recording = True #vid # True
     # our actual learning loop
     ckpt_int = agent_cfg["agent"]["experiment"]["checkpoint_interval"]
     num_evals = max(1,args_cli.max_steps // (ckpt_int * env_per_agent))
     evaluating = True
-    if eval_vid:   
-        vid_env.set_video_name(f"evals/eval_0")
     
+    #TODO undo for vid
+    #if eval_vid:   
+    #   vid_env.set_video_name(f"evals/eval_0")
+
     trainer.eval(0, vid_env)
 
     for i in range(num_evals):

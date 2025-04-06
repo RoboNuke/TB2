@@ -83,6 +83,10 @@ class FactoryTask:
     success_threshold: float = 0.04
     engage_threshold: float = 0.9
 
+    # values for minimum height curriculum
+    z_increase = 0.005
+    z_decrease = 0.003
+
 
 @configclass
 class Peg8mm(HeldAssetCfg):
@@ -121,7 +125,7 @@ class PegInsert(FactoryTask):
     fixed_asset_init_orn_range_deg: float = 360.0
 
     # Held Asset (applies to all tasks)
-    held_asset_pos_noise: list = [0.003, 0.0, 0.003]  # noise level of the held asset in gripper
+    held_asset_pos_noise: list = [0.0, 0.0, 0.0] #[0.003, 0.0, 0.003]  # noise level of the held asset in gripper
     held_asset_rot_init: float = 0.0
 
     # Rewards

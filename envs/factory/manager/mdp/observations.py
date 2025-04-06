@@ -140,11 +140,22 @@ def fixed_asset_pose(
 def force_torque_sensor(
         env: ManagerBasedRLEnv
 ):
+    return env.scene['force_torque_sensor'].data.net_forces_w_history
+    """
     try:
         return torch.tanh( 0.0011 * env.robot_av.get_measured_joint_forces()[:,8,:] )
     except:
         print("WARNING DO NOT HAVE FORCE TORQUE SENSING WORKING CORRECTLY")
         return torch.zeros((env.num_envs, 6), dtype=torch.float32, device=env.device)
+    """
+
+def force_torque_sensor_scaled(
+        env: ManagerBasedRLEnv
+):
+    dec = env.scene['force_torque_sensor'].history_length
+    #print(env.scene['force_torque_sensor'].data.net_forces_w_history[0,:,:])
+    ft_data = env.scene['force_torque_sensor'].data.net_forces_w_history.view((env.num_envs, dec*6))
+    return torch.tanh( 0.001 * ft_data)
 
 def peg_contact_sensor(
     env: ManagerBasedRLEnv
@@ -154,8 +165,22 @@ def peg_contact_sensor(
 def camera_image(
     env: ManagerBasedRLEnv
 ):
+    import matplotlib.pyplot as plt
+    import torchvision
+    import torchvision.transforms.functional as F
+    #print("cam img:", env.scene.keys())
+    #print("recording:", env.cfg.recording)
     if env.cfg.recording:
         cam_data = env.scene['tiled_camera'].data
+        img = cam_data.output['rgb']
+        img = img.permute(0,3,1,2)
+        #print(img.size())
+        image_grid = torchvision.utils.make_grid(img)
+        #print(image_grid.size())
+        plt.imshow(F.to_pil_image(image_grid))
+        plt.savefig(f"imgs/reset_img_{env.common_step_counter}.png", dpi=450)
+        #plt.show()
+
         return cam_data.output['rgb']
     else:
         try:

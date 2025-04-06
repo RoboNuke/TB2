@@ -42,6 +42,7 @@ ASSET_DIR = f"{ISAACLAB_NUCLEUS_DIR}/Factory"
 import envs.factory.manager.mdp.rewards as fac_mdp_rew
 import envs.factory.manager.mdp.observations as fac_mdp_obs
 import envs.factory.manager.mdp.events as fac_mdp_events
+import envs.factory.manager.mdp.curriculum as fac_mdp_cric
 
 from envs.factory.manager.factory_manager_task_cfg import *
 from omni.isaac.lab_assets.franka import FRANKA_PANDA_HIGH_PD_CFG  # isort: skip
@@ -50,6 +51,7 @@ from omni.isaac.lab.envs.mdp.actions.actions_cfg import DifferentialInverseKinem
 from omni.isaac.lab.utils import configclass
 
 from sensors.dense_pose_sensor.dense_pose_sensor import DummySensorCfg, DensePoseSensorCfg
+from sensors.force_torque_sensor.force_torque_cfg import ForceTorqueSensorCfg
 ##
 # Scene definition
 ##
@@ -185,11 +187,18 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         ),
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
-            focal_length=24.0, focus_distance=0.05, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
+            focal_length=24.0, focus_distance=0.05, horizontal_aperture=2*20.955, clipping_range=(0.1, 20.0)
         ),
-        width=240,
-        height=180,
+        width=5*240,
+        height=5*180,
         debug_vis = True,
+    )
+
+    force_torque_sensor: ForceTorqueSensorCfg = ForceTorqueSensorCfg(
+        prim_path="/World/envs/env_.*/Robot",
+        history_length=1,
+        debug_vis = False,
+        update_period = 0,
     )
     
 
@@ -273,7 +282,7 @@ class ObservationsCfg:
         )
         
         force_torque_reading = ObsTerm(
-            func=fac_mdp_obs.force_torque_sensor
+            func=fac_mdp_obs.force_torque_sensor_scaled
         )
 
 
@@ -340,10 +349,10 @@ class EventCfg:
         mode="startup"
     )
 
-    init_force_torque_sensor = EventTerm(
-        func=fac_mdp_events.init_ft_sensor,
-        mode="startup"
-    )
+    #init_force_torque_sensor = EventTerm(
+    #    func=fac_mdp_events.init_ft_sensor,
+    #    mode="startup"
+    #)
 
     reset_assets = EventTerm(
         func = fac_mdp_events.set_assets_to_default_pose,
@@ -437,14 +446,30 @@ class RewardsCfg:
         weight=0.0
     )
 
+from omni.isaac.lab.envs import ManagerBasedRLEnv
+def random_stop(env: ManagerBasedRLEnv) -> torch.Tensor:
+    rand = torch.rand((env.num_envs ), dtype=torch.float32, device=env.device)
+    print(rand < 0.05)
+    if torch.any(rand < 0.05):
+        print("Resetting")
+    return rand < 0.05
+
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
 
+    random = DoneTerm(func=random_stop, time_out=False)
+
+
+
 @configclass
 class CurriculumCfg:
     """Curriculum terms for the MDP."""
+
+    init_height_sampling = CurrTerm(
+        func=fac_mdp_cric.update_z_low
+    )
 
 ##
 # Environment configuration
