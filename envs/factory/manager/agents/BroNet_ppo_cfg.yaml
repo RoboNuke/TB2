@@ -6,7 +6,7 @@ num_envs: 256
 # this is the parameters for the BroNet shared model
 models:
   force_encoding: None
-  act_init_std: 0.25 #0.60653066
+  act_init_std: 0.16 #0.25 #0.60653066
   critic:
     n: 2
     latent_size: 512
@@ -21,11 +21,11 @@ agent:
   mini_batches: 100 #32 # 128 steps / minibatch 128 steps / minibatch (256 envs * 50 steps per update)
   discount_factor: 0.99
   lambda: 0.99 #0.95
-  learning_rate: 1.0e-04 # (optimized for PiH)
+  learning_rate: 5.0e-5 #1.0e-04 # (optimized for PiH)
 
   learning_rate_scheduler: KLAdaptiveLR
   learning_rate_scheduler_kwargs:
-    kl_threshold: 0.01
+    kl_threshold: 0.0255 #0.01
   # below are not args
   random_timesteps: 0
   learning_starts: 0
@@ -33,7 +33,7 @@ agent:
   ratio_clip: 0.2
   clip_predicted_values: False #True
   #value_clip: 0.0 #0.2
-  entropy_loss_scale: 0.000005
+  entropy_loss_scale: 3.0e-5 #0.000005
   value_loss_scale: 0.5 #1.0
   kl_threshold: 0.05 #0.0
   rewards_shaper_scale: 1.0

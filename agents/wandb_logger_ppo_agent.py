@@ -209,6 +209,12 @@ class WandbLoggerPPO(PPO):
                     #self.track_data(my_k, v.item())
                     timedout = v.item() - torch.sum(self.count_stats['success']).item()
                     self.data_manager.add_scalar({my_k:timedout}, timestep * self.num_envs)
+                elif 'Curriculum' in k or 'Minimum Z Height' in k:
+                    if eval:
+                        #print("Pushed curr to data manager")
+                        my_k = "Curriculum / " + k
+                        #my_k = my_k.replace("Curriculum/", "Curriculum / ")
+                        self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
                 else:
                     #self.track_data(my_k, v.item())
                     self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
@@ -294,7 +300,7 @@ class WandbLoggerPPO(PPO):
         """
         # note this is where I can add tracking stuff
         eval_mode = alive_mask is not None
-        
+        #print("Logger eval mode:", eval_mode)
         if not eval_mode and self.memory is not None:
             self._current_next_states = next_states
 
@@ -340,13 +346,14 @@ class WandbLoggerPPO(PPO):
                             self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
                         elif key.startswith("Episode_Reward"):
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
-                        elif key.startswith("Curriculum"):
-                            pass
+                        #elif key.startswith("Curriculum"):
+                        #    self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
                         else:
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
                 #print("m4 keys:", self.m4_returns.keys())
                 # add count stats for success and engagement
                 self.count_stats['success'] = torch.zeros(size=(states.shape[0],1), device=states.device)
+                self.count_stats['Minimum Z Height'] = torch.zeros(size=(1, ), device=states.device)
                 #print("init:", self.count_stats['success'])
                 #assert 1 == 0
                 self.count_stats['engaged'] = torch.zeros(size=(states.shape[0],1), device=states.device)
@@ -354,9 +361,10 @@ class WandbLoggerPPO(PPO):
             # this is a less efficent way to get the termination conditions, but isaac lab api has some issues
             # with not updating those buffers correctly so this is more accurate
             for big_key in infos.keys():
+                #print("Big Key:", big_key)
                 for k, v in infos[big_key].items():
                     #print("Manager:", env.unwrapped.reward_manager._episode_sums["keypoint_baseline"])
-                    #print(f'\t\t{k}:{v}')
+                    #print(f'\t{k}:{v}')
                     if k in self.m4_returns.keys():
                             
                         if 'success' in k:
@@ -378,7 +386,10 @@ class WandbLoggerPPO(PPO):
                             else:
                                 self.m4_returns[k] += rew
                     elif k.startswith("Curriculum"): # just directly publish curriculum data
-                        self.data_manager.add_scalar({k:v}, timestep * self.num_envs)
+                        #print("Got key:", k, " with ", eval_mode)
+                        if eval_mode:
+                            #print("Added curr to count stats")
+                            self.count_stats['Minimum Z Height'][0] = v
                     else: # it is a count stats key 
                         key = k.split("/")[-1]
                         if 'success' in k or 'engaged' in k:
@@ -449,7 +460,7 @@ class WandbLoggerPPO(PPO):
                 self._cumulative_timesteps[finished_episodes] = 0
                 for k, v in self.m4_returns.items():
                     v[finished_episodes] *= 0
-                
+        #print("alive mask:", alive_mask)      
         return alive_mask
     
     def reset_tracking(self):

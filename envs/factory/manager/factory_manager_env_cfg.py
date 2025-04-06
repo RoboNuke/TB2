@@ -187,10 +187,10 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         ),
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
-            focal_length=24.0, focus_distance=0.05, horizontal_aperture=2*20.955, clipping_range=(0.1, 20.0)
+            focal_length=24.0, focus_distance=0.05, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
         ),
-        width=5*240,
-        height=5*180,
+        width=240,
+        height=180,
         debug_vis = True,
     )
 
@@ -242,13 +242,27 @@ class ObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
-        
+        # fingertip to fixed
+        # fingertip to held
+        # fingertip vel
+        # previous action
+        # force
+        """
         fingertip_pos = ObsTerm(
             func= fac_mdp_obs.fingertip_pos
         )
 
         fingertip_quat = ObsTerm(
             func = fac_mdp_obs.fingertip_quat
+        )
+        """
+
+        fingertip_pos_rel_held = ObsTerm(
+            func = fac_mdp_obs.robot_held_relative_pos
+        )
+
+        fingertip_qual_rel_held = ObsTerm(
+            func = fac_mdp_obs.robot_held_relative_quat
         )
 
         ee_linvel = ObsTerm(
@@ -259,31 +273,23 @@ class ObservationsCfg:
             func = fac_mdp_obs.ee_angvel
         )
 
-        #ee_linacc = ObsTerm(
-        #    func = fac_mdp_obs.ee_linacc
-        #)
-
-        #ee_angacc = ObsTerm(
-        #    func = fac_mdp_obs.ee_angacc
-        #)
-        """
-        ee_traj = ObsTerm(
-            func = fac_mdp_obs.ee_traj
-        )
-        """
         fingertip_pos_rel_fixed = ObsTerm(
-            func = fac_mdp_obs.held_fixed_relative_pos
+            func = fac_mdp_obs.robot_fixed_relative_pos
         )
 
-        prev_action = ObsTerm(func=mdp.last_action)
-
-        hole_pose = ObsTerm(
-            func=fac_mdp_obs.fixed_asset_pose
+        fingertip_qual_rel_fixed = ObsTerm(
+            func = fac_mdp_obs.robot_fixed_relative_quat
         )
         
         force_torque_reading = ObsTerm(
             func=fac_mdp_obs.force_torque_sensor_scaled
         )
+
+        prev_action = ObsTerm(func=mdp.last_action)
+
+        #hole_pose = ObsTerm(
+        #    func=fac_mdp_obs.fixed_asset_pose
+        #)
 
 
         """ What factory Uses by default        
@@ -459,7 +465,7 @@ class TerminationsCfg:
     """Termination terms for the MDP."""
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
 
-    random = DoneTerm(func=random_stop, time_out=False)
+    #random = DoneTerm(func=random_stop, time_out=False)
 
 
 

@@ -156,6 +156,7 @@ def main(
     env_cfg.sim.dt = sim_dt
     env_cfg.decimation = dec
     env_cfg.sim.render_interval = dec
+    env_cfg.num_agents = args_cli.num_agents
     
     if args_cli.dmp_obs:
         env_cfg.scene.ee_imu.update_period = 0.0 # update every step
@@ -191,7 +192,7 @@ def main(
         if a_cfg["seed"] == -1 or agent_idx > 0:
             a_cfg["seed"] = random.randint(0, 10000)
             
-        print("Seed:", a_cfg['seed'])
+        #print("Seed:", a_cfg['seed'])
         # set the agent and environment seed from command line
         # note: certain randomization occur in the environment initialization so we set the seed here
         if agent_idx == 0:
@@ -261,7 +262,7 @@ def main(
         render_mode="rgb_array" if vid else None
     )
     
-    if False: #vid:
+    if vid:
         # TODO: Setup dynamic config
         vid_fps = int(1.0 / (env.cfg.sim.dt * env.cfg.sim.render_interval ))
 
@@ -448,8 +449,8 @@ def main(
     evaluating = True
     
     #TODO undo for vid
-    #if eval_vid:   
-    #   vid_env.set_video_name(f"evals/eval_0")
+    if eval_vid:   
+       vid_env.set_video_name(f"evals/eval_0")
 
     trainer.eval(0, vid_env)
 

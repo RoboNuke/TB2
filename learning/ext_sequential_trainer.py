@@ -82,9 +82,11 @@ class ExtSequentialTrainer(Trainer):
         assert self.env.num_agents == 1, "Does not support multiagent training"
 
         self.abs_agent.reset_tracking()
+        self.env.unwrapped.evaluating = False
         # reset env 
         states, infos = self.env.unwrapped.reset() # reseting unwrapped seems to ensure full reset idk
         states, infos = self.env.reset()
+        
 
         self.abs_agent.reset_memory()
         self.abs_agent._rollout = 0
@@ -209,6 +211,8 @@ class ExtSequentialTrainer(Trainer):
         # reset env - unwrapped required because skrl does not call reset functions above it
         states, infos = self.env.unwrapped.reset()
         states, infos = self.env.reset()
+
+        self.env.unwrapped.evaluating = True
 
         ep_length = self.env.env.max_episode_length #- 1
                 

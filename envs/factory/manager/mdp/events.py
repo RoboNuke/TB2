@@ -101,7 +101,7 @@ def init_tensors(
 
     env.cfg_task = task_cfg
     # initial z_low is 1mm above success
-    env.z_low = env.cfg_task.success_threshold * env.cfg_task.fixed_asset_cfg.height+0.001 + env.cfg_task.fixed_asset_cfg.base_height 
+    env.z_low = torch.ones((env.num_envs), device=env.device) * env.cfg_task.success_threshold * env.cfg_task.fixed_asset_cfg.height+0.001 + env.cfg_task.fixed_asset_cfg.base_height 
 
     # get offsets of held object in local frame
     held_base_x_offset = 0.0
@@ -171,6 +171,8 @@ def init_tensors(
     env.fingertip_midpoint_quat = env.identity_quat.clone()
     env.prev_fingertip_quat = env.identity_quat.clone()
     env.time_keypoint_update = 0.0
+
+    env.evaluating = False
 
 
 def reset_held_asset(
@@ -266,9 +268,11 @@ def reset_franka_above_fixed(
     fixed_tip_pos_local += held_asset_relative_pos
 
     # lowest the finger tip is allowed to be for curriculum
-    min_fingertip_z = (
-        torch.tensor([0.0, 0.0, env.z_low], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
-    ) + held_asset_relative_pos
+    min_fingertip_z = torch.zeros((env.num_envs, 3), device=env.device)
+    min_fingertip_z[:,2] = env.z_low
+    #(
+    #    torch.tensor([0.0, 0.0, env.z_low], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
+    #) + held_asset_relative_pos
     # the height of the fingertip on success, plus 1 mm so we don't start in successful position
     #success_fingertip_z = 0.001 + env.cfg_task.success_threshold * env.cfg_task.fixed_asset_cfg.height #- held_asset_offset_pos[:,2]
     # the height of engagement + 1 mm so we can start just above the hole
