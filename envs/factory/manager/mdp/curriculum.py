@@ -35,12 +35,14 @@ def update_z_low(
             #else:
             #    print(f"\tUnchanged z_low[{i}]:", env.z_low[l].item())
 
-            out[f'agent_{i}'] = env.z_low[l]
+            
         
         lowest_z = env.cfg_task.success_threshold * env.cfg_task.fixed_asset_cfg.height+0.001 # add 1 mm so we can't start at success
         env.z_low[env.z_low > env.cfg_task.hand_init_pos[2]] = env.cfg_task.hand_init_pos[2]
         env.z_low[env.z_low < lowest_z] = lowest_z
-        #print("\tFinal:", env.z_low)
+        for i in range(env.cfg.num_agents):
+            out[f'agent_{i}'] = env.z_low[l]
+            
         return out
 
 
