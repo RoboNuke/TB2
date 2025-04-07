@@ -34,7 +34,7 @@ python -m learning.single_agent_train \
     --wandb_tags="obs_param_test" \
     --seed=1 \
     --log_smoothness_metrics \
-    --learning_method=${learning_method} 
-    #--no_vids \
+    --learning_method=${learning_method} \
+    --no_vids 
 # "DMP_Observation_Testing" \
 #python -m learning.single_agent_train --task TB2-Factor-PiH-v0 --exp_name basic_PiH_baseline --headless --max_steps 50000000 --no_vids --num_agents 5 --num_envs 1280 --wandb_tags multi_agent_tests basic_obs
