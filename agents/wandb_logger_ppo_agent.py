@@ -391,9 +391,9 @@ class WandbLoggerPPO(PPO):
                                 self.m4_returns[k] += rew
                     elif k.startswith("Curriculum"): # just directly publish curriculum data
                         #print("Got key:", k, " with ", eval_mode)
-                        if eval_mode:
+                        #if eval_mode:
                             #print("Added curr to count stats")
-                            self.count_stats['Minimum Z Height'][0] = v
+                        self.count_stats['Minimum Z Height'][0] = v
                     else: # it is a count stats key 
                         key = k.split("/")[-1]
                         if 'success' in k or 'engaged' in k:
