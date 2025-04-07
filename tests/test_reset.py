@@ -84,7 +84,7 @@ def main(
     agent_cfg: dict
 ):
     print("start hydra")
-    env_cfg.scene.num_envs = 1 
+    env_cfg.scene.num_envs = 2
     env_cfg.scene.replicate_physics = True
     sim_dt = 1/50.0 
     policy_dt = 0.1#50*sim_dt
@@ -108,13 +108,14 @@ def main(
     #env._reset_once = False
     env = GripperCloseEnv(env)
     env.reset()
-    for i in range(100):
+    for i in range(1000):
+        #print(f"step {i}")
         env.step(0.0 * torch.from_numpy(env.action_space.sample()).repeat(env.num_envs, 1))
         
-    for k in range(1000):
-        env.step(0.0 * torch.from_numpy(env.action_space.sample()).repeat(env.num_envs, 1))
-        cont = input("Press anything to continue...")
-        print("reset")
+    #for k in range(1000):
+    #    env.step(0.0 * torch.from_numpy(env.action_space.sample()).repeat(env.num_envs, 1))
+    #    cont = input("Press anything to continue...")
+    #    print("reset")
 
 
 

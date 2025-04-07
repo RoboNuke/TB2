@@ -76,5 +76,8 @@ def currently_inrange(
         is_rotated = env.curr_yaw < env.cfg_task.ee_success_yaw
         curr_successes = torch.logical_and(curr_successes, is_rotated)
 
+    #print(f"\tThreshold {success_threshold}: {curr_successes.T}")
+    #if torch.any(curr_successes):
+    #    print("\n\nHERE!\n\n")
     return curr_successes
      

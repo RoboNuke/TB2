@@ -426,8 +426,8 @@ def main(
         agents = agent_list[0]
 
     #TODO undo for vids later   
-    #if vid:
-    #    vid_env.set_agent(AgentList(agent_list, agents_scope=[2,2]))
+    if vid:
+        vid_env.set_agent(agents)
 
     # configure and instantiate the RL trainer
     cfg_trainer = {
@@ -448,7 +448,6 @@ def main(
     num_evals = max(1,args_cli.max_steps // (ckpt_int * env_per_agent))
     evaluating = True
     
-    #TODO undo for vid
     if eval_vid:   
        vid_env.set_video_name(f"evals/eval_0")
 

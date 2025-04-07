@@ -27,22 +27,22 @@ class ObsHistCfg:
         
         fingertip_pos_rel_held = ObsTerm(
             func = fac_mdp_obs.robot_held_relative_pos,
-            params = {"relative":True}
+            params = {"imu_relative":True}
         )
 
         fingertip_qual_rel_held = ObsTerm(
             func = fac_mdp_obs.robot_held_relative_quat,
-            params = {"relative":True}
+            params = {"imu_relative":True}
         )
 
         fingertip_pos_rel_fixed = ObsTerm(
             func = fac_mdp_obs.robot_fixed_relative_pos,
-            params = {"relative":True}
+            params = {"imu_relative":True}
         )
 
         fingertip_quat_rel_fixed = ObsTerm(
             func = fac_mdp_obs.robot_fixed_relative_quat,
-            params = {"relative":True}
+            params = {"imu_relative":True}
         )
 
         force_torque_reading = ObsTerm(

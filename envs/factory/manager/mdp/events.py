@@ -235,13 +235,13 @@ def reset_held_asset(
 
     grasp_time = 0.0
     ctrl_target_joint_pos = robot.data.joint_pos.clone()
-    #ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
-    #while grasp_time < 0.25:
-    #    robot.set_joint_position_target(ctrl_target_joint_pos)
-    #    step_sim_no_action(env)
-    #    grasp_time += env.sim.get_physics_dt()
+    ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
+    while grasp_time < 0.25:
+        robot.set_joint_position_target(ctrl_target_joint_pos)
+        step_sim_no_action(env)
+        grasp_time += env.sim.get_physics_dt()
 
-    #physics_sim_view.set_gravity(carb.Float3(*env.cfg.sim.gravity))
+    physics_sim_view.set_gravity(carb.Float3(*env.cfg.sim.gravity))
     
     # Zero initial velocity.
     env.ee_angvel_fd[:, :] = 0.0
@@ -330,13 +330,12 @@ def reset_franka_above_fixed(
         
 
         #engaged_idxs = torch.zeros_like(above_fixed_pos_rand)
-        engaged_idxs = (above_fixed_pos_rand[:,2] < engage_fingertip_z[bad_envs,2])
+        engaged_idxs = (above_fixed_pos_rand[:,2] < fixed_tip_engage_z[bad_envs,2])
         #engaged_idxs[above_fixed_pos_rand[:,2] < engage_fingertip_z[bad_envs,2]]
         above_fixed_pos_rand[engaged_idxs,:2] *= 0.0 # keep held asset centered if engaged
         #above_fixed_pos += above_fixed_pos_rand
         above_fixed_pos[bad_envs,:2] += above_fixed_pos_rand[:,:2]
         above_fixed_pos[bad_envs,2] = above_fixed_pos_rand[:,2]
-        
         # (b) get random orientation facing down
         hand_down_euler = (
             torch.tensor(env.cfg_task.hand_init_orn, device=env.device).unsqueeze(0).repeat(n_bad, 1)
@@ -355,6 +354,9 @@ def reset_franka_above_fixed(
         hand_down_quat[bad_envs, :] = torch_utils.quat_from_euler_xyz(
             roll=hand_down_euler[:, 0], pitch=hand_down_euler[:, 1], yaw=hand_down_euler[:, 2]
         )
+        #print(env.hand_down_euler)
+        #print(hand_down_quat[:,0])
+        #print(hand_down_quat)
 
         # (c) iterative IK Method
         goal_fingertip_midpoint_pos[bad_envs, ...] = above_fixed_pos[bad_envs, ...]
@@ -382,7 +384,7 @@ def reset_franka_above_fixed(
         )
 
         ik_attempt += 1
-        #print(f"IK Attempt: {ik_attempt}\tBad Envs: {bad_envs.shape[0]}")
+        #print(f"IK Attempt: {ik_attempt}\tBad Envs: {bad_envs}")
 
     step_sim_no_action(env)
 
@@ -401,6 +403,7 @@ def set_pos_inverse_kinematics(
         fingertip_midpoint_pos = (
             robot.data.body_link_pos_w[:, env.fingertip_body_idx] - env.scene.env_origins
         )
+        
         fingertip_midpoint_quat = robot.data.body_link_quat_w[:, env.fingertip_body_idx]
         # Compute error to target.
         pos_error, axis_angle_error = fc.get_pose_error(
@@ -413,7 +416,7 @@ def set_pos_inverse_kinematics(
         )
 
         delta_hand_pose = torch.cat((pos_error, axis_angle_error), dim=-1)
-
+        
         # Solve DLS problem.
         jacobians = robot.root_physx_view.get_jacobians()
         left_finger_jacobian = jacobians[:, env.left_finger_body_idx - 1, 0:6, 0:7]
@@ -427,12 +430,16 @@ def set_pos_inverse_kinematics(
             jacobian=fingertip_midpoint_jacobian[env_ids],
             device=env.device,
         )
+        
         joint_pos = robot.data.joint_pos.clone()
         joint_vel = robot.data.joint_vel.clone()
+        
         joint_pos[env_ids, 0:7] += delta_dof_pos[:, 0:7]
         joint_vel[env_ids, :] = torch.zeros_like(joint_pos[env_ids,])
+        
 
-        ctrl_target_joint_pos[env_ids, 0:7] = joint_pos[env_ids, 0:7]
+        ctrl_target_joint_pos[:, 0:7] = joint_pos[:, 0:7]
+        
         # Update dof state.
         robot.write_joint_state_to_sim(joint_pos, joint_vel)
         robot.set_joint_position_target(ctrl_target_joint_pos)

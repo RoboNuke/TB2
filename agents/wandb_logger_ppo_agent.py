@@ -368,11 +368,15 @@ class WandbLoggerPPO(PPO):
                     if k in self.m4_returns.keys():
                             
                         if 'success' in k:
+                            # TODO is this being called?
                             rew = reward_dist[k.split("/")[-1]]
-                            self.count_stats['success'][rew>0.0001] = 1.0
+                            #print("succ rew:", rew.T)
+                            self.count_stats['success'][rew>1.0e-6] = 1.0
                         elif 'engaged' in k:
+                            # TODO is this being called?
                             rew = reward_dist[k.split("/")[-1]]
-                            self.count_stats['engaged'][rew>0.0001] = 1.0
+                            #print("engaged rew:", rew.T)
+                            self.count_stats['engaged'][rew>1.0e-6] = 1.0
 
                         if 'Reward' in k:
                             rew = reward_dist[k.split("/")[-1]]
