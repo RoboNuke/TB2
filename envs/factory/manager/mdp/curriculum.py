@@ -41,8 +41,9 @@ def update_z_low(
         env.z_low[env.z_low > env.cfg_task.hand_init_pos[2]] = env.cfg_task.hand_init_pos[2]
         env.z_low[env.z_low < lowest_z] = lowest_z
         for i in range(env.cfg.num_agents):
+            l = i * step
             out[f'agent_{i}'] = env.z_low[l]
-            
+        print(torch.min(env.z_low))
         return out
 
 
