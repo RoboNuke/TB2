@@ -346,8 +346,8 @@ class WandbLoggerPPO(PPO):
                             self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
                         elif key.startswith("Episode_Reward"):
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
-                        #elif key.startswith("Curriculum"):
-                        #    self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
+                        elif key.startswith("Curriculum"):
+                            self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
                         else:
                             self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
                 #print("m4 keys:", self.m4_returns.keys())
