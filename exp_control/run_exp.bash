@@ -30,8 +30,8 @@ python -m learning.single_agent_train \
     --num_envs=$((256 * $num_agents)) \
     --num_agents $num_agents \
     --exp_name="${names[$exp_idx]}"  \
-    --wandb_project="Tester" \
-    --wandb_tags="visual_test" \
+    --wandb_project="DMP_Observation_Testing" \
+    --wandb_tags="obs_param_test" \
     --seed=1 \
     --log_smoothness_metrics \
     --learning_method=${learning_method} 
