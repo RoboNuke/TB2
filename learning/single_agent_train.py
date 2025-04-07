@@ -38,7 +38,9 @@ AppLauncher.add_app_launcher_args(parser)
 
 # parse the arguments
 args_cli, hydra_args = parser.parse_known_args()
-
+args_cli.wandb_tags = args_cli.wandb_tags[0].split(",")
+#print("Tags:", args_cli.wandb_tags)
+#assert 1 ==0
 if not args_cli.no_vids:  
     args_cli.video = True
     args_cli.enable_cameras = True

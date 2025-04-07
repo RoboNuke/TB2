@@ -23,6 +23,7 @@ fi
 echo "Exp: ${names[$exp_idx]}"
 echo "Num Agents: $num_agents"
 echo "Learning Method: $learning_method"
+tags=("obs_param_test" "no_curriculum") 
 python -m learning.single_agent_train \
     --headless \
     --task=${envs[$exp_idx]} \
@@ -31,7 +32,7 @@ python -m learning.single_agent_train \
     --num_agents $num_agents \
     --exp_name="${names[$exp_idx]}"  \
     --wandb_project="DMP_Observation_Testing" \
-    --wandb_tags="obs_param_test" \
+    --wandb_tags="obs_param_test","no_curriculum" \
     --seed=1 \
     --log_smoothness_metrics \
     --learning_method=${learning_method} \
