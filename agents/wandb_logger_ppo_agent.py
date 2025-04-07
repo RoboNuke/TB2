@@ -210,11 +210,11 @@ class WandbLoggerPPO(PPO):
                     timedout = v.item() - torch.sum(self.count_stats['success']).item()
                     self.data_manager.add_scalar({my_k:timedout}, timestep * self.num_envs)
                 elif 'Curriculum' in k or 'Minimum Z Height' in k:
-                    if eval:
-                        #print("Pushed curr to data manager")
-                        my_k = "Curriculum / " + k
-                        #my_k = my_k.replace("Curriculum/", "Curriculum / ")
-                        self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
+                    #if eval:
+                    #print("Pushed curr to data manager")
+                    my_k = "Curriculum / " + k
+                    #my_k = my_k.replace("Curriculum/", "Curriculum / ")
+                    self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
                 else:
                     #self.track_data(my_k, v.item())
                     self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
