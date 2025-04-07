@@ -13,7 +13,7 @@ def update_z_low(
     env_ids: torch.Tensor
 ):
     #print("called update_z_low")
-    if env.evaluating:
+    if True: #env.evaluating:
         step = env.num_envs // env.cfg.num_agents
         succ_rews = torch.unsqueeze(env.reward_manager._episode_sums['success'], 1).clone()
         out = {}

@@ -473,9 +473,9 @@ class TerminationsCfg:
 class CurriculumCfg:
     """Curriculum terms for the MDP."""
 
-    #init_height_sampling = CurrTerm(
-    #    func=fac_mdp_cric.update_z_low
-    #)
+    init_height_sampling = CurrTerm(
+        func=fac_mdp_cric.update_z_low
+    )
 
 ##
 # Environment configuration

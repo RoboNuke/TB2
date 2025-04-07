@@ -101,8 +101,8 @@ def init_tensors(
 
     env.cfg_task = task_cfg
     # initial z_low is 1mm above success
-    #env.z_low = torch.ones((env.num_envs), device=env.device) * env.cfg_task.success_threshold * env.cfg_task.fixed_asset_cfg.height+0.001 + env.cfg_task.fixed_asset_cfg.base_height 
-    env.z_low = torch.ones((env.num_envs), device=env.device) * env.cfg_task.hand_init_pos[2]   
+    env.z_low = torch.ones((env.num_envs), device=env.device) * env.cfg_task.success_threshold * env.cfg_task.fixed_asset_cfg.height+0.001 + env.cfg_task.fixed_asset_cfg.base_height 
+    #env.z_low = torch.ones((env.num_envs), device=env.device) * env.cfg_task.hand_init_pos[2]   
     # get offsets of held object in local frame
     held_base_x_offset = 0.0
     if env.cfg_task.name == "peg_insert":
