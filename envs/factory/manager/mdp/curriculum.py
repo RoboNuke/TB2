@@ -12,6 +12,7 @@ def update_z_low(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor
 ):
+    return
     #print("called update_z_low")
     if True: #env.evaluating:
         step = env.num_envs // env.cfg.num_agents

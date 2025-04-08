@@ -27,7 +27,7 @@ tags=("obs_param_test" "no_curriculum")
 python -m learning.single_agent_train \
     --headless \
     --task=${envs[$exp_idx]} \
-    --max_steps=25000000 \
+    --max_steps=75000000 \
     --num_envs=$((256 * $num_agents)) \
     --num_agents $num_agents \
     --exp_name="${names[$exp_idx]}"  \
