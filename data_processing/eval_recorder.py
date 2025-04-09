@@ -163,7 +163,8 @@ def main(
         "Std_Obs_2025-04-07_01-54-18"
     ]
     tests_done = {name:[False, False, False, False] for name in des_exp_names}
-    des_filepath = "/nfs/hpc/share/brownhun/TB2/logs/"
+    des_filepath = "/nfs/hpc/share/brownhun/TB2/logs"
+    args_cli.exp_dir = des_filepath
     des_tags = ['obs_param_test']
     exc_tags = ['failed_reset']
     
