@@ -191,7 +191,7 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         ),
         width=240,
         height=180,
-        debug_vis = False,
+        debug_vis = True,
     )
 
     force_torque_sensor: ForceTorqueSensorCfg = ForceTorqueSensorCfg(
