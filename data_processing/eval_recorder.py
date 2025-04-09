@@ -298,6 +298,7 @@ def main(
     print("made agent")
     
     images = torch.zeros((max_rollout_steps, 2*180, 4*240, 3), device = env.device)
+    #print(run_ids_to_run)
     for idx, run_id in enumerate(run_ids_to_run):
     #for run_id in [run_id_test]:
         print(f"Starting run:{run_id}; \t{idx}/{len(run_ids_to_run)}")
@@ -316,7 +317,11 @@ def main(
         checkpoint_files = [f for f in os.listdir(fp) if os.path.isfile(os.path.join(fp, f))]
         #print("Checkpoint_files:", checkpoint_files)
         # for each checkpoint:
-
+        ckpt_values = [int(fp[6:-3]) for fp in checkpoint_files]
+        ckpt_values.sort()
+        checkpoint_files = [f"agent_{fp_val}.pt" for fp_val in ckpt_values]
+        print(checkpoint_files)
+        #assert 1 == 0
         with torch.no_grad():
             for ckpt_fp_idx in tqdm.tqdm(range(len(checkpoint_files)), file=sys.stdout):
                 ckpt_fp = checkpoint_files[ckpt_fp_idx]
@@ -324,6 +329,7 @@ def main(
                 #   load agent
                 agent.load(fp + "/" + ckpt_fp)
                 # reset env
+                """
                 states, infos = env.reset()
                 
                 alive_mask = torch.ones(size=(states.shape[0], 1), device=states.device, dtype=bool)
@@ -363,10 +369,10 @@ def main(
                                 states = next_states
                     # draw eval est + actions on image
                 # make imgs into gif
+                """
                 img_path = f'{args_cli.exp_dir}/{args_cli.exp_name}/{ckpt_fp[:-3]}.gif'
-                save_tensor_as_gif(images, img_path, vals)
-                print("Saved to:", img_path)
-
+                #save_tensor_as_gif(images, img_path, vals)
+                #print("Saved to:", img_path)
                 #assert 1 ==0
                 # add gif to wandb 
                 wandb.log({
@@ -378,6 +384,8 @@ def main(
                     ),
                     "video_step": int(ckpt_fp[6:-3])
                 })
+                #import time 
+                #time.sleep(120)
         wandb.finish()
         #print("done")
         #assert 1 == 0
