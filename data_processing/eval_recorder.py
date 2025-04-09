@@ -300,7 +300,6 @@ def main(
     images = torch.zeros((max_rollout_steps, 2*180, 4*240, 3), device = env.device)
     for idx, run_id in enumerate(run_ids_to_run):
     #for run_id in [run_id_test]:
-        idx = 0
         print(f"Starting run:{run_id}; \t{idx}/{len(run_ids_to_run)}")
         
         run = wandb.init(
@@ -309,7 +308,7 @@ def main(
             id=run_id, 
             resume="must"
         )
-        
+        args_cli.exp_dir = run.config['experiment']['experiment_name']
         # get list of checkpoints:
         fp = args_cli.exp_dir + "/" + args_cli.exp_name + "/checkpoints"
         #print("File Path: ", fp)
