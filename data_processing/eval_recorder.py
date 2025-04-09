@@ -81,24 +81,38 @@ from agents.wandb_logger_ppo_agent import WandbLoggerPPO
 import tqdm
 
 import matplotlib.pyplot as plt
-def save_tensor_as_gif(tensor_list, filename, duration=100, loop=0):
+from PIL import Image
+from PIL import ImageFont
+from PIL import ImageDraw 
+def save_tensor_as_gif(tensor_list, filename, vals, duration=100, loop=0):
     """
     Saves a list of PyTorch tensors as a GIF image.
 
     Args:
         tensor_list (list of torch.Tensor): List of tensors to be saved as frames.
         filename (str): Output filename for the GIF.
+        vals (any): List to write onto corner of images
         duration (int, optional): Duration of each frame in milliseconds. Defaults to 100.
         loop (int, optional): Number of times the GIF should loop. 0 means infinite loop. Defaults to 0.
     """
     tensor_list = tensor_list.permute(0, 3, 1, 2)
-    tensor_list = tensor_list
+    tensor_list = 1.0 - tensor_list
     images = []
-    print(torch.max(tensor_list), torch.min(tensor_list))
+    #print(torch.max(tensor_list), torch.min(tensor_list))
     for i in range(50):#tensor_list:
         # Ensure the tensor is in CPU and convert it to a PIL Image
         tensor = tensor_list[i,:,:,:] 
         img = F.to_pil_image(tensor.to("cpu"))
+        for img_idx, val in enumerate(vals[i]):
+            x = img_idx % 4
+            y = img_idx // 4
+            draw = ImageDraw.Draw(img)
+            #font = ImageFont.truetype("sans-serif.ttf", 16)
+
+            font = ImageFont.truetype("UbuntuMono-R.ttf", 20)
+            # draw.text((x, y),"Sample Text",(r,g,b))
+            draw.text((x * 240, y*180+160),f"Value Est={round(val.item(),2)}",(0,255,0),font=font)
+
         images.append(img)
         #plt.plot(img)
         #plt.show()
@@ -155,6 +169,7 @@ def main(
     
     runs = api.runs(name)
     run_ids_to_run = []
+    #run_id_test = None
     for run in runs:
         exp_dir = run.config['experiment']['directory']
         exp_name = run.config['experiment']['experiment_name']
@@ -183,9 +198,10 @@ def main(
         #configs = {k: v for k, v in run.config.items() if not k.startswith("_")}
         #print(exp_name, exp_dir == args_cli.exp_dir, exp_name==args_cli.exp_name)
         #if exp_dir == args_cli.exp_dir and exp_name == args_cli.exp_name:
-        # #   run_id = run.id
+        #   run_id_test = run.id
         #    print(run_id)
 
+    #print("run id:", run_id_test)
     #assert 1 == 0
     
     # create env
@@ -250,7 +266,7 @@ def main(
     )  # same as: `wrap_env(env, wrapper="auto")    
     #env._reset_once = False
     env = GripperCloseEnv(env)
-    
+    print("made env")
     env.cfg.recording = True
     device = env.device
     
@@ -278,10 +294,12 @@ def main(
         num_envs=env.num_envs,
         device=device
     )
-    
+    print("made agent")
     
     images = torch.zeros((max_rollout_steps, 2*180, 4*240, 3), device = env.device)
     for idx, run_id in enumerate(run_ids_to_run):
+    #for run_id in [run_id_test]:
+        idx = 0
         print(f"Starting run:{run_id}; \t{idx}/{len(run_ids_to_run)}")
         
         run = wandb.init(
@@ -308,6 +326,7 @@ def main(
                 states, infos = env.reset()
                 
                 alive_mask = torch.ones(size=(states.shape[0], 1), device=states.device, dtype=bool)
+                vals = []
                 for i in tqdm.tqdm(range(max_rollout_steps), file=sys.stdout):
                         # get action
                         actions = agent.act(
@@ -315,6 +334,8 @@ def main(
                             timestep=1000, 
                             timesteps=1000
                         )[-1]['mean_actions']
+
+                        vals.append(agent.policy.act({"states": states}, role="value")[0])
                         
                         actions[~alive_mask[:,0],:] *= 0.0
                         
@@ -342,8 +363,8 @@ def main(
                     # draw eval est + actions on image
                 # make imgs into gif
                 img_path = f'{args_cli.exp_dir}/{args_cli.exp_name}/{ckpt_fp[:-3]}.gif'
-                save_tensor_as_gif(images, img_path)
-                #print("Saved to:", img_path)
+                save_tensor_as_gif(images, img_path, vals)
+                print("Saved to:", img_path)
 
                 #assert 1 ==0
                 # add gif to wandb 
@@ -357,6 +378,8 @@ def main(
                     "video_step": int(ckpt_fp[6:-3])
                 })
         wandb.finish()
+        #print("done")
+        #assert 1 == 0
 
 if __name__ == "__main__":
     main()
