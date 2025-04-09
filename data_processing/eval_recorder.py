@@ -309,6 +309,7 @@ def main(
             resume="must"
         )
         args_cli.exp_dir = run.config['experiment']['directory']
+        args_cli.exp_name = run.config['experiment']['experiment_name']
         # get list of checkpoints:
         fp = args_cli.exp_dir + "/" + args_cli.exp_name + "/checkpoints"
         #print("File Path: ", fp)
