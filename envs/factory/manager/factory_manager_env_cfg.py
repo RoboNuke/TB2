@@ -194,6 +194,14 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         debug_vis = False,
     )
 
+    # add imu to sensors
+    ee_imu = DensePoseSensorCfg(
+        prim_path="/World/envs/env_.*/Robot/panda_hand",
+        update_period = 0,
+        history_length = 1,
+        offset = ImuCfg.OffsetCfg(pos=[0.0, 0.0, 0.107])
+    )
+
     force_torque_sensor: ForceTorqueSensorCfg = ForceTorqueSensorCfg(
         prim_path="/World/envs/env_.*/Robot",
         history_length=1,
@@ -242,35 +250,25 @@ class ObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
-        # fingertip to fixed
-        # fingertip to held
-        # fingertip vel
-        # previous action
-        # force
-        """
+        
         fingertip_pos = ObsTerm(
-            func= fac_mdp_obs.fingertip_pos
+            func= fac_mdp_obs.fingertip_pos,
+            params={"imu_sensor": True}
         )
 
         fingertip_quat = ObsTerm(
-            func = fac_mdp_obs.fingertip_quat
-        )
-        """
-
-        fingertip_pos_rel_held = ObsTerm(
-            func = fac_mdp_obs.robot_held_relative_pos
-        )
-
-        fingertip_qual_rel_held = ObsTerm(
-            func = fac_mdp_obs.robot_held_relative_quat
+            func = fac_mdp_obs.fingertip_quat,
+            params={"imu_sensor": True}
         )
 
         ee_linvel = ObsTerm(
-            func = fac_mdp_obs.ee_linvel
+            func = fac_mdp_obs.ee_linvel,
+            params={"imu_sensor": True}
         )
 
         ee_angvel = ObsTerm(
-            func = fac_mdp_obs.ee_angvel
+            func = fac_mdp_obs.ee_angvel,
+            params={"imu_sensor": True}
         )
 
         fingertip_pos_rel_fixed = ObsTerm(
@@ -280,16 +278,13 @@ class ObservationsCfg:
         fingertip_qual_rel_fixed = ObsTerm(
             func = fac_mdp_obs.robot_fixed_relative_quat
         )
-        
-        force_torque_reading = ObsTerm(
-            func=fac_mdp_obs.force_torque_sensor_scaled
-        )
 
         prev_action = ObsTerm(func=mdp.last_action)
-
-        #hole_pose = ObsTerm(
-        #    func=fac_mdp_obs.fixed_asset_pose
-        #)
+        
+        force_torque_reading = ObsTerm(
+            func=fac_mdp_obs.force_torque_sensor,
+            params = {'scaled':True}
+        )
 
 
         """ What factory Uses by default        

@@ -24,7 +24,8 @@ class ForceTorqueSensor(SensorBase):
         # ensure the imu data is only one big
         self._data = ForceTorqueSensorCfg()
         self.cfg = cfg
-        self.history_length = cfg.history_length
+        self.fd = cfg["finite_diff"]
+        self.history_length = max(2 if self.fd else 0, cfg.history_length) # we set history == 2 so we can do finite diff
         cfg.history_length = 0
 
         super().__init__(cfg)
@@ -58,7 +59,10 @@ class ForceTorqueSensor(SensorBase):
             env_ids = slice(None)
         # reset accumulative data buffers
         self._data.net_forces_w[env_ids,:] = 0.0
-        self._data.net_forces_w_history[env_ids,:,:] = 0.0
+        if self.fd:
+            self._data.net_forces_w_history[env_ids,:,:] = 0.0
+            self._data.net_jerk_w_history[env_ids,:,:] = 0.0
+            self._data.net_snap_w_history[env_ids,:,:] = 0.0
 
     def update(self, dt: float, force_recompute: bool = False):
         if self._dt == None:
@@ -85,12 +89,30 @@ class ForceTorqueSensor(SensorBase):
         # data buffers
         self._data.net_forces_w = torch.zeros(self._num_envs, 1, 6, device=self._device)
         self._data.net_forces_w_history = torch.zeros(self._num_envs, self.history_length, 6, device=self._device)
+        if self.fd:
+            self._data.net_jerk_w_history = torch.zeros(self._num_envs, self.history_length, 6, device=self._device)
+            self._data.net_jerk_w = torch.zeros(self._num_envs, 1, 6, device=self._device)
+            self._data.net_snap_w_history = torch.zeros(self._num_envs, self.history_length, 6, device=self._device)
+            self._data.net_snap_w = torch.zeros(self._num_envs, 1, 6, device=self._device)
 
     def _update_buffers_impl(self, env_ids: Sequence[int]):
         # roll the history forward, last in last out
         self._data.net_forces_w = self._robot_av.get_measured_joint_forces()[:, self.cfg.joint_idx, :]
+
         self._data.net_forces_w_history = torch.roll(self._data.net_forces_w_history, -1, 1)
         self._data.net_forces_w_history[:,-1,:] = self._data.net_forces_w
+
+        if self.fd:
+            self._data.net_jerk_w = (self._data.net_forces_w - self._data.net_forces_w_history[:,-2,:] ) / self._dt
+            self._data.net_jerk_w_history = torch.roll(self._data.net_jerk_w_history, -1, 1)
+            self._data.net_jerk_w_history[:,-1,:] = self._data.net_jerk_w
+            
+            self._data.net_jerk_w = (self._data.net_jerk_w - self._data.net_jerk_w_history[:,-2,:] ) / self._dt  
+            self._data.net_snap_w_history = torch.roll(self._data.net_forces_w_history, -1, 1)
+            self._data.net_snap_w_history[:,-1,:] = (self._data.net_forces_w - self._data.net_forces_w_history[:,-2, :]) / self._dt
+
+
+
 
 
 

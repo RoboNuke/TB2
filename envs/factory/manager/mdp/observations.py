@@ -50,57 +50,81 @@ def ee_traj(
     return env.traj_data
 
 def fingertip_pos(
-    env: ManagerBasedRLEnv
+    env: ManagerBasedRLEnv,
+    imu_sensor: bool = False
 ):
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
-        return env.fingertip_midpoint_pos
+        if imu_sensor:
+            env.scene['ee_imu'].data.pos_w
+        else:
+            return env.fingertip_midpoint_pos
     except AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
 
 
 def fingertip_quat(
-    env: ManagerBasedRLEnv
+    env: ManagerBasedRLEnv,
+    imu_sensor: bool = False
 ):
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
-        return env.fingertip_midpoint_quat
+        if imu_sensor:
+            env.scene['ee_imu'].data.quat_w
+        else:
+            return env.fingertip_midpoint_quat
     except AttributeError: # obs is called before init so data structures not in place
         return torch.tensor([1.0, 0.0, 0.0, 0.0], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
 
 def ee_linvel(
-    env: ManagerBasedRLEnv
+    env: ManagerBasedRLEnv,
+    imu_sensor: bool = False
 ):
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
-        return env.ee_linvel_fd
+        if imu_sensor:
+            env.scene['ee_imu'].data.lin_vel_b
+        else:
+            return env.ee_linvel_fd
     except AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
 
 def ee_angvel(
-    env: ManagerBasedRLEnv
+    env: ManagerBasedRLEnv,
+    imu_sensor: bool = False
 ):
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
-        return env.ee_angvel_fd
+        if imu_sensor:
+            env.scene['ee_imu'].data.lin_ang_b
+        else:
+            return env.ee_angvel_fd
     except AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
     
 def ee_linacc(
-    env: ManagerBasedRLEnv
+    env: ManagerBasedRLEnv,
+    imu_sensor: bool = False
 ):
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
-        return env.ee_linacc_fd
+        if imu_sensor:
+            env.scene['ee_imu'].data.ang_acc_b
+        else:
+            return env.ee_linacc_fd
     except AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
 
 def ee_angacc(
-    env: ManagerBasedRLEnv
+    env: ManagerBasedRLEnv,
+    imu_sensor: bool = False
 ):
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
-        return env.ee_angacc_fd
+        if imu_sensor:
+            env.scene['ee_imu'].data.ang_acc_b
+        else:
+            return env.ee_angacc_fd
     except AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
 
@@ -163,6 +187,7 @@ def robot_held_relative_quat(
                 )
     except AttributeError:
         return torch.zeros((env.num_envs, 4), device=env.device)
+
 def scaled_jnt_pos_rel(
         env: ManagerBasedRLEnv
 ):
@@ -173,7 +198,6 @@ def scaled_jnt_pos_rel(
     joint_pos_rel = mdp.joint_pos_rel(env)
     scaled = (joint_pos_rel - bot) / (top - bot )
     return scaled
-
 
 def held_asset_pose(
         env: ManagerBasedRLEnv
@@ -196,10 +220,32 @@ def fixed_asset_pose(
         return torch.zeros(env.num_envs, 7)
 
 def force_torque_sensor(
-        env: ManagerBasedRLEnv
+        env: ManagerBasedRLEnv,
+        scaled: bool = False
 ):
-    return env.scene['force_torque_sensor'].data.net_forces_w_history
+    if scaled:
+        return torch.tanh( 0.0011 * env.scene['force_torque_sensor'].data.net_forces_w_history )
+    else:
+        return env.scene['force_torque_sensor'].data.net_forces_w_history
 
+def force_torque_jerk(
+        env: ManagerBasedRLEnv,
+        scaled: bool = False
+):
+    if scaled:
+        return torch.tanh( 0.0011 * env.scene['force_troque_sensor'].data.net_jerk_w_history )
+    else:
+        return env.scene['force_troque_sensor'].data.net_jerk_w_history
+    
+def force_torque_snap(
+        env: ManagerBasedRLEnv,
+        scaled: bool = False
+):
+    if scaled:
+        return torch.tanh( 0.0011 * env.scene['force_troque_sensor'].data.net_snap_w_history )
+    else:
+        return env.scene['force_troque_sensor'].data.net_snap_w_history
+  
 def old_force_torque_sensor(
         env: ManagerBasedRLEnv
 ):
@@ -209,7 +255,6 @@ def old_force_torque_sensor(
         print("WARNING DO NOT HAVE FORCE TORQUE SENSING WORKING CORRECTLY")
         return torch.zeros((env.num_envs, 6), dtype=torch.float32, device=env.device)
     
-
 def force_torque_sensor_scaled(
         env: ManagerBasedRLEnv
 ):
@@ -261,7 +306,6 @@ def joint_acc_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityC
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
     return asset.data.joint_acc[:, asset_cfg.joint_ids]
-
 
 def scaled_jnt_pos_rel(
         env: ManagerBasedRLEnv

@@ -62,6 +62,11 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         self.day = torch.zeros((self.num_envs, self.dec+1, 4), device=self.device)
         self.dday = torch.zeros((self.num_envs, self.dec+1, 4), device=self.device)
 
+        if self.fit_ft:
+            self.f = torch.zeros((self.num_envs, self.dec+1, 6), device=self.device)
+            self.df = torch.zeros((self.num_envs, self.dec+1, 6), device=self.device)
+            self.ddf = torch.zeros((self.num_envs, self.dec+1, 6), device=self.device)
+
         # set a ref list to make step func look pretty
         self.unpack_list = [
             ("fingertip_pos", self.y),
@@ -103,6 +108,21 @@ class DMPObservationWrapper(gym.ObservationWrapper):
             device = self.device
         )
 
+        if self.fit_ft:
+            self.ft_dmp = DiscreteDMP(
+                nRBF=self.num_weights,
+                betaY=12/4,
+                dt = self.dt,
+                cs = CS(
+                    ax=1,
+                    dt = self.dt,
+                    device=self.device
+                ),
+                num_envs=self.num_envs,
+                num_dims = 6,
+                device = self.device
+            )
+
         # our new obs (num_weights * dim_per_(ang/pos) * (ang + pos))
         # current last mult is 1 because I'm not considering angular anything
         self.new_obs = torch.zeros( (self.num_envs, new_dim), device=self.device)
@@ -119,8 +139,9 @@ class DMPObservationWrapper(gym.ObservationWrapper):
         idx = 0
         for i in range(len(self.unpack_list)):
             var_name, var_ref = self.unpack_list[i]
-            dim = 4 if "quat" in var_name else 3
+            #dim = 4 if "quat" in var_name else 3
             #print(f"{var_name}: {idx}, {idx + self.dec*dim}")
+            """"
             if "ang" in var_name:
                 var_ref[:,1:,1:] = old_obs['policy'][:, idx:idx + self.dec*dim].view(
                     (self.num_envs, self.dec, dim)
@@ -130,16 +151,45 @@ class DMPObservationWrapper(gym.ObservationWrapper):
                     (self.num_envs, self.dec, dim)
                 )
             idx += self.dec * dim
+            """
+            if 'ang' in var_name:
+                var_ref[:,1:,1:] = old_obs['policy'][var_name]
+            else:
+                var_ref[:,1:,:] = old_obs['policy'][var_name]
+
+        if self.fit_ft:
+            self.f[:,1:,:] = old_obs['policy']['force_torque_reading']
+            self.df[:,1:,:] = old_obs['policy']['force_torque_jerk_reading']
+            self.ddf[:,1:,:] = old_obs['policy']['force_torque_snap_reading']
         
         #print(self.y[0,:,0])
-        self.pos_dmp.learnWeightsCSDT(self.y, self.dy, self.ddy, self.t)
-        self.ang_dmp.learnWeightsCSDT(self.ay, self.day, self.dday, self.t)
+        if self.relative:
+            self.pos_dmp.learnWeightsCSDT(self.y - self.y[:,0,:], self.dy, self.ddy, self.t)
+            # TODO: Ang subtraction
+            self.ang_dmp.learnWeightsCSDT(self.ay, self.day, self.dday, self.t)
+        else:
+            self.pos_dmp.learnWeightsCSDT(self.y, self.dy, self.ddy, self.t)
+            self.ang_dmp.learnWeightsCSDT(self.ay, self.day, self.dday, self.t)
+        if self.fit_ft:
+            self.ft_dmp.learnWeightsCSDT(self.f, self.df, self.ddf, self.t)
+
+
         #print(self.ay)
         #print(torch.linalg.norm(self.ay,dim=2))
-        self.new_obs[:, :(self.num_weights * 3) ] = self.pos_dmp.ws.view(self.num_envs, self.num_weights * 3)
-        self.new_obs[:, (self.num_weights * 3):] = self.ang_dmp.w.reshape(self.num_envs, self.num_weights * 3) 
+        i = 0
+        step = self.num_weights * 3
+        self.new_obs[:, i:(i+step) ] = self.pos_dmp.ws.view(self.num_envs, step)
+        # goal 
+        self.new_obs[:, (i+step):(i+step+3)] = old_obs['policy']['fingertip_pos'][:,-1,:]
+        i += step + 3
+        self.new_obs[:, i:(i+step)] = self.ang_dmp.w.reshape(self.num_envs, step) 
+        self.new_obs[:, (i+step):(i+step+4)] = old_obs['policy']['fingertip_quat'][:,-1,:]
+        # goal self.new_obs[:, (i+step):(i+step+4)]
+        i += step + 4
+        if self.fit_ft:
+            self.new_obs[:, i:(i+2*step)] = self.ft_dmp.w.reshape(self.num_envs, 2*step)
+            self.num_obs[:, (i+2*step):(i+2*step+6)] = old_obs['policy']['force_torque_reading'][:-1,:]
         #print(self.new_obs)
-
 
         # move final obs to init position
 

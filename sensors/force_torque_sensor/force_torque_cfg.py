@@ -11,3 +11,4 @@ from sensors.force_torque_sensor.force_torque_sensor import ForceTorqueSensor
 class ForceTorqueSensorCfg(SensorBaseCfg):
     class_type: type = ForceTorqueSensor
     joint_idx: int = 8
+    finite_diff: bool = False
