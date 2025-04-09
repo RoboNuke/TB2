@@ -238,8 +238,8 @@ def camera_image(
         #print(img.size())
         image_grid = torchvision.utils.make_grid(img)
         #print(image_grid.size())
-        plt.imshow(F.to_pil_image(image_grid))
-        plt.savefig(f"imgs/reset_img_{env.common_step_counter}.png", dpi=450)
+        #plt.imshow(F.to_pil_image(image_grid))
+        #plt.savefig(f"imgs/reset_img_{env.common_step_counter}.png", dpi=450)
         #plt.show()
 
         return cam_data.output['rgb']
