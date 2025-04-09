@@ -31,8 +31,8 @@ agent:
   learning_starts: 0
   grad_norm_clip: 1.0 # 0.5
   ratio_clip: 0.2
-  clip_predicted_values: False #True
-  #value_clip: 0.0 #0.2
+  clip_predicted_values: True # False
+  value_clip: 0.2 #0.0
   entropy_loss_scale: 3.0e-5 #0.000005
   value_loss_scale: 1.0 # 0.5
   kl_threshold: 0.05 #0.0
