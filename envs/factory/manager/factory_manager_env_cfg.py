@@ -43,6 +43,7 @@ import envs.factory.manager.mdp.rewards as fac_mdp_rew
 import envs.factory.manager.mdp.observations as fac_mdp_obs
 import envs.factory.manager.mdp.events as fac_mdp_events
 import envs.factory.manager.mdp.curriculum as fac_mdp_cric
+import envs.factory.manager.mdp.termination as fac_mdp_term
 
 from envs.factory.manager.factory_manager_task_cfg import *
 from omni.isaac.lab_assets.franka import FRANKA_PANDA_HIGH_PD_CFG  # isort: skip
@@ -208,7 +209,6 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         debug_vis = False,
         update_period = 0,
     )
-    
 
 
 ##
@@ -426,7 +426,7 @@ class RewardsCfg:
         },
         weight=1.0
     )
-
+    
     success = RewTerm(
         func=fac_mdp_rew.currently_inrange,
         params={
@@ -435,7 +435,24 @@ class RewardsCfg:
         },
         weight=1.0
     )
+    
+    broke_peg = RewTerm(
+        func=fac_mdp_rew.force_check,
+        params={
+            "threshold" : 5.0
+        },
+        weight=-2.0
+    )
 
+    """
+    success = RewTerm(
+        func = mdp.is_terminated_term,
+        weight=1.0,
+        params={
+            "term_keys":["success"]
+        }
+    )
+    """
     # factory includes these but seems to be zero reward
     l2_action_penalty = RewTerm(
         func=mdp.action_l2,
@@ -460,6 +477,18 @@ class TerminationsCfg:
     """Termination terms for the MDP."""
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
 
+    """broke_peg = DoneTerm(
+        func=fac_mdp_term.force_check,
+        params= {
+            "threshold":5.0
+        },
+        time_out=False
+    )
+
+    success = DoneTerm(
+        func=fac_mdp_term.factory_success,
+        time_out = False
+    )"""
     #random = DoneTerm(func=random_stop, time_out=False)
 
 
@@ -537,3 +566,4 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
             env_spacing=self.env_spacing, 
             replicate_physics=self.replicate_physics
         )
+        

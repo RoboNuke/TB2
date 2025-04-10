@@ -8,6 +8,21 @@ from omni.isaac.lab.managers import SceneEntityCfg
 
 from envs.factory.manager.mdp.events import compute_keypoint_value
 
+
+def force_check(
+    env: ManagerBasedRLEnv,
+    threshold: float = 1.0e6
+):
+    fts = env.scene['force_torque_sensor']
+    if fts.history_length > 1:
+        raw = env.scene['force_torque_sensor'].data.net_forces_w_history
+        mag = torch.linalg.norm(raw,dim=1)
+        val = torch.max(raw, dim=1)
+        return torch.where( val > threshold, 1.0, 0.0)
+    else:
+        mag = torch.linalg.norm(env.scene['force_torque_sensor'].data.net_forces_w, dim=1)
+        return torch.where(mag > threshold, 1.0, 0.0) 
+
 def squashing_fn(x, a, b):
     return 1 / (torch.exp(a * x) + b + torch.exp(-a * x))
 

@@ -155,12 +155,13 @@ def main(
 
     name = args_cli.wandb_entity + "/" + args_cli.wandb_project
     des_exp_names = [
-        "Std_Obs_2025-04-07_01-26-48", 
+        #"Std_Obs_2025-04-07_01-26-48", 
         #"Std_Obs_2025-04-07_14-42-40", 
         #"Std_Obs_2025-04-07_14-58-44",
         #"Std_Obs_2025-04-07_21-19-47",
         #"Std_Obs_2025-04-07_21-20-18"
-        "Std_Obs_2025-04-07_01-54-18"
+        #"Std_Obs_2025-04-07_01-54-18"
+        "Std_Obs_2025-04-07_21-19-47"
     ]
     tests_done = {name:[False, False, False, False] for name in des_exp_names}
     des_filepath = "/nfs/hpc/share/brownhun/TB2/logs"
@@ -175,7 +176,7 @@ def main(
         exp_dir = run.config['experiment']['directory']
         exp_name = run.config['experiment']['experiment_name']
         tags = run.tags
-        print(exp_name)
+        
         #print(exp_name, exp_name in des_exp_names, des_filepath in exp_dir, exp_dir)
         for tag in des_tags:
             if not tag in tags:
@@ -320,7 +321,6 @@ def main(
         ckpt_values = [int(fp[6:-3]) for fp in checkpoint_files]
         ckpt_values.sort()
         checkpoint_files = [f"agent_{fp_val}.pt" for fp_val in ckpt_values]
-        print(checkpoint_files)
         #assert 1 == 0
         with torch.no_grad():
             for ckpt_fp_idx in tqdm.tqdm(range(len(checkpoint_files)), file=sys.stdout):
@@ -329,7 +329,7 @@ def main(
                 #   load agent
                 agent.load(fp + "/" + ckpt_fp)
                 # reset env
-                """
+                
                 states, infos = env.reset()
                 
                 alive_mask = torch.ones(size=(states.shape[0], 1), device=states.device, dtype=bool)
@@ -369,7 +369,7 @@ def main(
                                 states = next_states
                     # draw eval est + actions on image
                 # make imgs into gif
-                """
+                
                 img_path = f'{args_cli.exp_dir}/{args_cli.exp_name}/{ckpt_fp[:-3]}.gif'
                 #save_tensor_as_gif(images, img_path, vals)
                 #print("Saved to:", img_path)
