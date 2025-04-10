@@ -314,7 +314,7 @@ def main(
         args_cli.exp_name = run.config['experiment']['experiment_name']
         # get list of checkpoints:
         fp = args_cli.exp_dir + "/" + args_cli.exp_name + "/checkpoints"
-        #print("File Path: ", fp)
+        print("File Path: ", fp)
         checkpoint_files = [f for f in os.listdir(fp) if os.path.isfile(os.path.join(fp, f))]
         #print("Checkpoint_files:", checkpoint_files)
         # for each checkpoint:
@@ -325,7 +325,7 @@ def main(
         with torch.no_grad():
             for ckpt_fp_idx in tqdm.tqdm(range(len(checkpoint_files)), file=sys.stdout):
                 ckpt_fp = checkpoint_files[ckpt_fp_idx]
-                #print("Current Checkpoint File:", ckpt_fp)
+                print("Current Checkpoint File:", fp + "/" + ckpt_fp)
                 #   load agent
                 agent.load(fp + "/" + ckpt_fp)
                 # reset env
