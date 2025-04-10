@@ -371,13 +371,13 @@ def main(
                 # make imgs into gif
                 
                 img_path = f'{args_cli.exp_dir}/{args_cli.exp_name}/{ckpt_fp[:-3]}.gif'
-                #save_tensor_as_gif(images, img_path, vals)
+                save_tensor_as_gif(images, img_path, vals)
                 #print("Saved to:", img_path)
                 #assert 1 ==0
                 # add gif to wandb 
                 wandb.log({
                     "eval_video":wandb.Video(
-                        data_or_path=img_path,
+                        data_or_path=fp + "/" + ckpt_fp,
                         caption=ckpt_fp[:-3],
                         #fps=10,
                         format='gif'
