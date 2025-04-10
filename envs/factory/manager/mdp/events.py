@@ -246,8 +246,8 @@ def reset_held_asset(
     physics_sim_view.set_gravity(carb.Float3(*env.cfg.sim.gravity))
     
     # Zero initial velocity.
-    env.ee_angvel_fd[:, :] = 0.0
-    env.ee_linvel_fd[:, :] = 0.0
+    #env.ee_angvel_fd[:, :] = 0.0
+    #env.ee_linvel_fd[:, :] = 0.0
 
 def init_imu(
     env: ManagerBasedRLEnv,

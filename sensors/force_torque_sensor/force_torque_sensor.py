@@ -24,7 +24,7 @@ class ForceTorqueSensor(SensorBase):
         # ensure the imu data is only one big
         self._data = ForceTorqueSensorCfg()
         self.cfg = cfg
-        self.fd = cfg["finite_diff"]
+        self.fd = cfg.finite_diff
         self.history_length = max(2 if self.fd else 0, cfg.history_length) # we set history == 2 so we can do finite diff
         cfg.history_length = 0
 
@@ -46,6 +46,7 @@ class ForceTorqueSensor(SensorBase):
         # update sensors if needed
         self._update_outdated_buffers()
         # return the data
+        #print(self._data.net_forces_w.size())
         return self._data
 
     @property

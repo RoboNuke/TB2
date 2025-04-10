@@ -56,10 +56,10 @@ def fingertip_pos(
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
         if imu_sensor:
-            env.scene['ee_imu'].data.pos_w
+            return env.scene['ee_imu'].data.pos_w
         else:
             return env.fingertip_midpoint_pos
-    except AttributeError: # obs is called before init so data structures not in place
+    except:# AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
 
 
@@ -70,10 +70,10 @@ def fingertip_quat(
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
         if imu_sensor:
-            env.scene['ee_imu'].data.quat_w
+            return env.scene['ee_imu'].data.quat_w
         else:
             return env.fingertip_midpoint_quat
-    except AttributeError: # obs is called before init so data structures not in place
+    except:# AttributeError: # obs is called before init so data structures not in place
         return torch.tensor([1.0, 0.0, 0.0, 0.0], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
 
 def ee_linvel(
@@ -83,10 +83,10 @@ def ee_linvel(
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
         if imu_sensor:
-            env.scene['ee_imu'].data.lin_vel_b
+            return env.scene['ee_imu'].data.lin_vel_b
         else:
             return env.ee_linvel_fd
-    except AttributeError: # obs is called before init so data structures not in place
+    except:# AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
 
 def ee_angvel(
@@ -96,10 +96,10 @@ def ee_angvel(
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
         if imu_sensor:
-            env.scene['ee_imu'].data.lin_ang_b
+            return env.scene['ee_imu'].data.lin_ang_b
         else:
             return env.ee_angvel_fd
-    except AttributeError: # obs is called before init so data structures not in place
+    except:# AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
     
 def ee_linacc(
@@ -109,10 +109,10 @@ def ee_linacc(
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
         if imu_sensor:
-            env.scene['ee_imu'].data.ang_acc_b
+            return env.scene['ee_imu'].data.ang_acc_b
         else:
             return env.ee_linacc_fd
-    except AttributeError: # obs is called before init so data structures not in place
+    except:# AttributeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
 
 def ee_angacc(
@@ -122,10 +122,10 @@ def ee_angacc(
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
         if imu_sensor:
-            env.scene['ee_imu'].data.ang_acc_b
+            return env.scene['ee_imu'].data.ang_acc_b
         else:
             return env.ee_angacc_fd
-    except AttributeError: # obs is called before init so data structures not in place
+    except: # AttributeError and RuntimeError: # obs is called before init so data structures not in place
         return torch.zeros((env.num_envs, 3), device=env.device)
 
 def robot_fixed_relative_pos(
@@ -223,10 +223,16 @@ def force_torque_sensor(
         env: ManagerBasedRLEnv,
         scaled: bool = False
 ):
-    if scaled:
-        return torch.tanh( 0.0011 * env.scene['force_torque_sensor'].data.net_forces_w_history )
+    if env.scene['force_torque_sensor'].history_length > 1:
+        if scaled:
+            return torch.tanh( 0.0011 * env.scene['force_torque_sensor'].data.net_forces_w_history )
+        else:
+            return env.scene['force_torque_sensor'].data.net_forces_w_history
     else:
-        return env.scene['force_torque_sensor'].data.net_forces_w_history
+        if scaled:
+            return torch.tanh( 0.0011 * env.scene['force_torque_sensor'].data.net_forces_w)
+        else:
+            return env.scene['force_torque_sensor'].data.net_forces_w
 
 def force_torque_jerk(
         env: ManagerBasedRLEnv,

@@ -243,6 +243,7 @@ def main(
 
         # determine video kwargs
         vid = not args_cli.no_vids
+        print("Deciding to make vids")
         if vid:
             cfg = a_cfg['video_tracking']
             vid_interval = cfg['train_video_interval']

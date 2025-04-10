@@ -74,11 +74,11 @@ class DensePoseSensor(SensorBase):
         if env_ids is None:
             env_ids = slice(None)
         # reset accumulative data buffers
-        self._data.quat_w[env_ids,:,:] = 0.0
-        self._data.lin_vel_b[env_ids,:,:] = 0.0
-        self._data.ang_vel_b[env_ids,:,:] = 0.0
-        self._data.lin_acc_b[env_ids,:,:] = 0.0
-        self._data.ang_acc_b[env_ids,:,:] = 0.0
+        self._data.quat_w[env_ids,...] *= 0.0
+        self._data.lin_vel_b[env_ids,...] *= 0.0
+        self._data.ang_vel_b[env_ids,...] *= 0.0
+        self._data.lin_acc_b[env_ids,...] *= 0.0
+        self._data.ang_acc_b[env_ids,...] *= 0.0
 
     def update(self, dt: float, force_recompute: bool = False):
         if self._dt == None:
@@ -94,6 +94,7 @@ class DensePoseSensor(SensorBase):
         self.imu.update(dt, True)
 
     def _initialize_impl(self):
+        
         # Initialize parent class
         super()._initialize_impl()
         self.imu._initialize_impl()
@@ -105,26 +106,41 @@ class DensePoseSensor(SensorBase):
         #super()._update_buffers_impl(env_ids)
         self.imu._update_buffers_impl(env_ids)
         # roll the history forward, last in last out
-        self._data.pos_w = torch.roll(self._data.pos_w, -1, 1)
-        self._data.pos_w[:,-1,:] = self.imu.data.pos_w
-        self._data.quat_w = torch.roll(self._data.quat_w, -1, 1)
-        self._data.quat_w[:,-1,:] = self.imu.data.quat_w
-        self._data.lin_vel_b = torch.roll(self._data.lin_vel_b, -1, 1)  
-        self._data.lin_vel_b[:,-1,:] = self.imu.data.lin_vel_b
-        self._data.lin_acc_b = torch.roll(self._data.lin_acc_b, -1, 1)  
-        self._data.lin_acc_b[:,-1,:] = self.imu.data.lin_acc_b
-        self._data.ang_vel_b = torch.roll(self._data.ang_vel_b, -1, 1)  
-        self._data.ang_vel_b[:,-1,:] = self.imu.data.ang_vel_b
-        self._data.ang_acc_b = torch.roll(self._data.ang_acc_b, -1, 1)  
-        self._data.ang_acc_b[:,-1,:] = self.imu.data.ang_acc_b
+        if self.history_length > 1:
+            self._data.pos_w = torch.roll(self._data.pos_w, -1, 1)
+            self._data.pos_w[:,-1,:] = self.imu.data.pos_w
+            self._data.quat_w = torch.roll(self._data.quat_w, -1, 1)
+            self._data.quat_w[:,-1,:] = self.imu.data.quat_w
+            self._data.lin_vel_b = torch.roll(self._data.lin_vel_b, -1, 1)  
+            self._data.lin_vel_b[:,-1,:] = self.imu.data.lin_vel_b
+            self._data.lin_acc_b = torch.roll(self._data.lin_acc_b, -1, 1)  
+            self._data.lin_acc_b[:,-1,:] = self.imu.data.lin_acc_b
+            self._data.ang_vel_b = torch.roll(self._data.ang_vel_b, -1, 1)  
+            self._data.ang_vel_b[:,-1,:] = self.imu.data.ang_vel_b
+            self._data.ang_acc_b = torch.roll(self._data.ang_acc_b, -1, 1)  
+            self._data.ang_acc_b[:,-1,:] = self.imu.data.ang_acc_b
+        else:
+            self._data.pos_w = self.imu.data.pos_w
+            self._data.quat_w = self.imu.data.quat_w
+            self._data.lin_vel_b = self.imu.data.lin_vel_b
+            self._data.ang_vel_b = self.imu.data.ang_vel_b
+            self._data.lin_acc_b = self.imu.data.lin_acc_b
+            self._data.ang_acc_b = self.imu.data.ang_acc_b
 
     def _initialize_buffers_impl(self):
         """Create buffers for storing data."""
         self.imu._initialize_buffers_impl()
         # data buffers
-        self._data.pos_w = torch.zeros(self.imu._view.count, self.history_length, 3, device=self._device)
-        self._data.quat_w = torch.zeros(self.imu._view.count, self.history_length, 4, device=self._device)
-        self._data.quat_w[:, :, 0] = 1.0
+        if self.history_length > 1:
+            self._data.pos_w = torch.zeros(self.imu._view.count, self.history_length, 3, device=self._device)
+            self._data.quat_w = torch.zeros(self.imu._view.count, self.history_length, 4, device=self._device)
+
+            self._data.quat_w[:, :, 0] = 1.0
+        else:
+            self._data.pos_w = torch.zeros(self.imu._view.count, 3, device=self._device)
+            self._data.quat_w = torch.zeros(self.imu._view.count, 4, device=self._device)
+            self._data.quat_w[:,0] = 1.0
+            
         self._data.lin_vel_b = torch.zeros_like(self._data.pos_w)
         self._data.ang_vel_b = torch.zeros_like(self._data.pos_w)
         self._data.lin_acc_b = torch.zeros_like(self._data.pos_w)
