@@ -359,9 +359,7 @@ class WandbLoggerPPO(PPO):
                     values=values[~self.finished_envs,:][envs_remaining:,:]
                 )
             else:
-                print("full add")
                 #self.add_sample_to_memory(
-                print("\t", states.size(), states[~self.finished_envs,:].size())
                 self.memory.add_samples(
                     states=states[~self.finished_envs,:], 
                     actions=actions[~self.finished_envs,:], 
@@ -377,11 +375,11 @@ class WandbLoggerPPO(PPO):
         # entering success is added to memory, do it outside the if
         # so that during eval, actions can be set to zero when we
         # succeed (preventing any forces to be logged on accident)
-        #for key in reward_dist.keys():
-        #    if 'success' in key:
-        #        self.finished_envs[reward_dist[key][:,0] > 1.0e-6] = True
-        #    elif 'failure' in key:
-        #        self.finished_envs[reward_dist[key][:,0] > 1.0e-6] = True
+        for key in reward_dist.keys():
+            if 'success' in key:
+                self.finished_envs[reward_dist[key][:,0] > 1.0e-6] = True
+            elif 'failure' in key:
+                self.finished_envs[reward_dist[key][:,0] > 1.0e-6] = True
 
         #print('eval mode:', 'on' if eval_mode else 'off')
         if self.write_interval > 0 or eval_mode:
@@ -547,11 +545,7 @@ class WandbLoggerPPO(PPO):
     def _update(self, timestep: int, timesteps: int):
         super()._update(timestep, timesteps)
         # reset optimizer step
-        for p,v in self.optimizer.state_dict()['state'].items():
-            print("Before:",v["step"])
         self.resetAdamOptimizerTime(self.optimizer)
-        for p,v in self.optimizer.state_dict()['state'].items():
-            print("After:",v["step"])
 
     def resetAdamOptimizerTime(self, opt):
         for p,v in opt.state_dict()['state'].items():
