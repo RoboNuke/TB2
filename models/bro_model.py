@@ -250,6 +250,7 @@ class BroAgent(GaussianMixin, DeterministicMixin, Model):
         elif role == "value":
             shared_output = self.feature_net(inputs) if self._shared_output is None else self._shared_output
             self._shared_output = None
+            
             return self.critic(shared_output), {}
         
 

@@ -435,15 +435,15 @@ class RewardsCfg:
         },
         weight=1.0
     )
-    
-    broke_peg = RewTerm(
+    """
+    broke_peg_failure = RewTerm(
         func=fac_mdp_rew.force_check,
         params={
             "threshold" : 5.0
         },
         weight=-2.0
     )
-
+    """
     """
     success = RewTerm(
         func = mdp.is_terminated_term,

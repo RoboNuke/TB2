@@ -85,6 +85,8 @@ class WandbLoggerPPO(PPO):
             # tensors sampled during training
             self._tensors_names = ["states", "actions", "log_prob", "values", "returns", "advantages"]
 
+        self.finished_envs = torch.zeros(size=(self.num_envs, ), device=self.device, dtype=bool)
+
         # create temporary variables needed for storage and computation
         self._current_log_prob = None
         self._current_next_states = None
@@ -224,7 +226,7 @@ class WandbLoggerPPO(PPO):
         self._track_rewards.clear()
         self._track_timesteps.clear()
         self.tracking_data.clear()
-        
+        self.finished_envs[:] = False
         
         if self.log_wandb:
             for k, v in keep.items():
@@ -263,6 +265,13 @@ class WandbLoggerPPO(PPO):
         # write wandb
         if timestep > 1 and self.write_interval > 0 and not timestep % self.write_interval:
             self.write_tracking_data(timestep, timesteps)
+
+
+    def add_sample_to_memory(self, **tensors: torch.Tensor) -> None:
+        self.memory.add_samples( **tensors )
+        for memory in self.secondary_memories:
+                memory.add_samples( **tensors )
+
 
     def record_transition(self,
                         states: torch.Tensor,
@@ -318,13 +327,62 @@ class WandbLoggerPPO(PPO):
             if self._time_limit_bootstrap:
                 rewards += self._discount_factor * values * truncated
 
+            # check memory indexing to ensure safe placement
+            envs_remaining = self.num_envs - self.memory.env_index
+            envs_samp_to_add = torch.sum(~self.finished_envs)
             # storage transition in memory
-            self.memory.add_samples(states=states, actions=actions, rewards=rewards, next_states=next_states,
-                                    terminated=terminated, truncated=truncated, log_prob=self._current_log_prob, values=values)
-            for memory in self.secondary_memories:
-                memory.add_samples(states=states, actions=actions, rewards=rewards, next_states=next_states,
-                                   terminated=terminated, truncated=truncated, log_prob=self._current_log_prob, values=values)
-        
+            # I am assuming we can't add more samlpes than the memory 
+            # capacity, this is fine because memory assumes every sample
+            # will be added, this can only reduce that amount
+            if envs_remaining < envs_samp_to_add:
+                # break it into two samples
+                #self.add_sample_to_memory(
+                self.memory.add_samples(
+                    states=states[~self.finished_envs,:][:envs_remaining,:], 
+                    actions=actions[~self.finished_envs,:][:envs_remaining,:], 
+                    rewards=rewards[~self.finished_envs,:][:envs_remaining,:], 
+                    next_states=next_states[~self.finished_envs,:][:envs_remaining,:],
+                    terminated=terminated[~self.finished_envs,:][:envs_remaining,:], 
+                    truncated=truncated[~self.finished_envs,:][:envs_remaining,:], 
+                    log_prob=self._current_log_prob[~self.finished_envs,:][:envs_remaining,:], 
+                    values=values[~self.finished_envs,:][:envs_remaining,:]
+                )
+                #self.add_sample_to_memory(
+                self.memory.add_samples(
+                    states=states[~self.finished_envs,:][envs_remaining:,:], 
+                    actions=actions[~self.finished_envs,:][envs_remaining:,:], 
+                    rewards=rewards[~self.finished_envs,:][envs_remaining:,:], 
+                    next_states=next_states[~self.finished_envs,:][envs_remaining:,:],
+                    terminated=terminated[~self.finished_envs,:][envs_remaining:,:], 
+                    truncated=truncated[~self.finished_envs,:][envs_remaining:,:], 
+                    log_prob=self._current_log_prob[~self.finished_envs,:][envs_remaining:,:], 
+                    values=values[~self.finished_envs,:][envs_remaining:,:]
+                )
+            else:
+                print("full add")
+                #self.add_sample_to_memory(
+                print("\t", states.size(), states[~self.finished_envs,:].size())
+                self.memory.add_samples(
+                    states=states[~self.finished_envs,:], 
+                    actions=actions[~self.finished_envs,:], 
+                    rewards=rewards[~self.finished_envs,:], 
+                    next_states=next_states[~self.finished_envs,:],
+                    terminated=terminated[~self.finished_envs,:], 
+                    truncated=truncated[~self.finished_envs,:], 
+                    log_prob=self._current_log_prob[~self.finished_envs,:], 
+                    values=values[~self.finished_envs,:]
+                )
+
+        # update successful envs after pushing samples so that state 
+        # entering success is added to memory, do it outside the if
+        # so that during eval, actions can be set to zero when we
+        # succeed (preventing any forces to be logged on accident)
+        #for key in reward_dist.keys():
+        #    if 'success' in key:
+        #        self.finished_envs[reward_dist[key][:,0] > 1.0e-6] = True
+        #    elif 'failure' in key:
+        #        self.finished_envs[reward_dist[key][:,0] > 1.0e-6] = True
+
         #print('eval mode:', 'on' if eval_mode else 'off')
         if self.write_interval > 0 or eval_mode:
             # compute the cumulative sum of the rewards and timesteps
@@ -368,12 +426,10 @@ class WandbLoggerPPO(PPO):
                     if k in self.m4_returns.keys():
                             
                         if 'success' in k:
-                            # TODO is this being called?
                             rew = reward_dist[k.split("/")[-1]]
                             #print("succ rew:", rew.T)
                             self.count_stats['success'][rew>1.0e-6] = 1.0
                         elif 'engaged' in k:
-                            # TODO is this being called?
                             rew = reward_dist[k.split("/")[-1]]
                             #print("engaged rew:", rew.T)
                             self.count_stats['engaged'][rew>1.0e-6] = 1.0
@@ -482,30 +538,48 @@ class WandbLoggerPPO(PPO):
         super().set_running_mode(mode)
         self.reset_tracking() 
 
+    def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
+        acts, log_probs, outputs = super().act(states, timestep, timesteps)
+        acts[~self.finished_envs,:] *= 0.0
+        return acts, log_probs, outputs
+    
+
+    def _update(self, timestep: int, timesteps: int):
+        super()._update(timestep, timesteps)
+        # reset optimizer step
+        for p,v in self.optimizer.state_dict()['state'].items():
+            print("Before:",v["step"])
+        self.resetAdamOptimizerTime(self.optimizer)
+        for p,v in self.optimizer.state_dict()['state'].items():
+            print("After:",v["step"])
+
+    def resetAdamOptimizerTime(self, opt):
+        for p,v in opt.state_dict()['state'].items():
+            v["step"]=torch.Tensor([0])            
     #def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
-        """Process the environment's states to make a decision (actions) using the main policy
+    """Process the environment's states to make a decision (actions) using the main policy
 
-        :param states: Environment's states
-        :type states: torch.Tensor
-        :param timestep: Current timestep
-        :type timestep: int
-        :param timesteps: Number of timesteps
-        :type timesteps: int
+    :param states: Environment's states
+    :type states: torch.Tensor
+    :param timestep: Current timestep
+    :type timestep: int
+    :param timesteps: Number of timesteps
+    :type timesteps: int
 
-        :return: Actions
-        :rtype: torch.Tensor
-        """
-        """
-        # sample random actions
-        # TODO, check for stochasticity
-        if timestep < self._random_timesteps:
-            return self.policy.random_act({"states": self._state_preprocessor(states)}, role="policy")
+    :return: Actions
+    :rtype: torch.Tensor
+    """
+    """
+    # sample random actions
+    # TODO, check for stochasticity
+    if timestep < self._random_timesteps:
+        return self.policy.random_act({"states": self._state_preprocessor(states)}, role="policy")
 
-        # sample stochastic actions
-        with torch.autocast(device_type=self._device_type, enabled=self._mixed_precision):
-            actions, log_prob, outputs = self.policy.act({"states": self._state_preprocessor(states)}, role="policy")
-            self._current_log_prob = log_prob
+    # sample stochastic actions
+    with torch.autocast(device_type=self._device_type, enabled=self._mixed_precision):
+        actions, log_prob, outputs = self.policy.act({"states": self._state_preprocessor(states)}, role="policy")
+        self._current_log_prob = log_prob
 
-        return actions, log_prob, outputs"
-        """
+    return actions, log_prob, outputs"
+    """
 

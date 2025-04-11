@@ -15,6 +15,7 @@ parser.add_argument("--force_encoding", type=str, default=None, help="Which type
 parser.add_argument("--num_agents", type=int, default=1, help="How many agents to train in parallel")
 parser.add_argument("--learning_method", type=str, default="ppo", help="Which learning approach to use, currently ppo and sac are supported")
 parser.add_argument("--dmp_obs", default=False, action="store_true", help="Should we use dmps for the observation space")
+parser.add_argument("--init_eval", default=True, action="store_false", help="When added, we will not perform an eval before any training has happened")
 
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")
@@ -334,7 +335,8 @@ def main(
     memory = RandomMemory(
             memory_size=agent_cfg['agent']["rollouts"], 
             num_envs=env.num_envs // args_cli.num_agents, 
-            device=device
+            device=device,
+            replacement=True
         )
     # instantiate the agent's models (function approximators).
     # PPO requires 2 models, visit its documentation for more details
@@ -454,7 +456,8 @@ def main(
     if eval_vid:   
        vid_env.set_video_name(f"evals/eval_0")
 
-    trainer.eval(0, vid_env)
+    if args_cli.init_eval:
+        trainer.eval(0, vid_env)
 
     for i in range(num_evals):
         print(f"Beginning epoch {i+1}/{num_evals}")
