@@ -1,6 +1,6 @@
 #!/bin/bash
 ##SBATCH --array=1-100             # set up the array
-#SBATCH -J VALCLIP			    # name of job
+#SBATCH -J RLUPDATE			    # name of job
 #SBATCH -A virl-grp	            # name of my sponsored account, e.g. class or research group, NOT ONID!
 ##SBATCH -p gpu,eecs2,tiamat,dgxh,dgx2,ampere		# name of partition or queue
 #SBATCH -p tiamat,eecs2,gpu,dgx2,dgxh

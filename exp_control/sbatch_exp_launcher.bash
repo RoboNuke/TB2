@@ -1,7 +1,7 @@
 #!/bin/bash
 
 num_agents=4
-num_exp_per_env=1
+num_exp_per_env=2
 num_exp_env=1
 names=("Obs" "DMP_Obs" "Hist_Obs" "Force_only_DMP" "Force_only_Hist")
 
