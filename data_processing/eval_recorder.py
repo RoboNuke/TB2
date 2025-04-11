@@ -84,7 +84,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw 
-def save_tensor_as_gif(tensor_list, filename, vals, duration=100, loop=0):
+def save_tensor_as_gif(tensor_list, filename, vals, succ_step, duration=100, loop=0):
     """
     Saves a list of PyTorch tensors as a GIF image.
 
@@ -108,8 +108,17 @@ def save_tensor_as_gif(tensor_list, filename, vals, duration=100, loop=0):
             y = img_idx // 4
             draw = ImageDraw.Draw(img)
             #font = ImageFont.truetype("sans-serif.ttf", 16)
-
-            font = ImageFont.truetype("UbuntuMono-R.ttf", 20)
+            #font = ImageFont.truetype("UbuntuMono-R.ttf", 20)            
+            font = ImageFont.truetype("DejaVuSans.ttf",20)
+            if i >= succ_step[img_idx]:
+                draw.rectangle( 
+                    (
+                        (x*240, y*180),
+                        ((x+1)*240, (y+1)*180)
+                    ), 
+                    outline="green", 
+                    width=3
+                )
             # draw.text((x, y),"Sample Text",(r,g,b))
             draw.text((x * 240, y*180+160),f"Value Est={round(val.item(),2)}",(0,255,0),font=font)
 
@@ -143,6 +152,10 @@ class Img2InfoWrapperclass(gym.Wrapper):
         info['img'] = observations['info']['img']
         return observations, info
 
+
+seed = 5686 #random.randint(0, 10000)
+print("Seed:", seed)
+set_seed(seed)
 @hydra_task_config(args_cli.task, agent_cfg_entry_point)
 def main(
     env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, 
@@ -162,9 +175,11 @@ def main(
         #"Std_Obs_2025-04-07_21-20-18"
         #"Std_Obs_2025-04-07_01-54-18"
         "Std_Obs_2025-04-07_21-19-47"
+        #"rel_obs_param_tests_2025-04-07_01-08-20"
     ]
     tests_done = {name:[False, False, False, False] for name in des_exp_names}
     des_filepath = "/nfs/hpc/share/brownhun/TB2/logs"
+    des_filepath = "/home/hunter/TB2/logs"
     args_cli.exp_dir = des_filepath
     des_tags = ['obs_param_test']
     exc_tags = ['failed_reset']
@@ -176,7 +191,7 @@ def main(
         exp_dir = run.config['experiment']['directory']
         exp_name = run.config['experiment']['experiment_name']
         tags = run.tags
-        
+        print(exp_dir, exp_name)
         #print(exp_name, exp_name in des_exp_names, des_filepath in exp_dir, exp_dir)
         for tag in des_tags:
             if not tag in tags:
@@ -199,9 +214,9 @@ def main(
 
         #configs = {k: v for k, v in run.config.items() if not k.startswith("_")}
         #print(exp_name, exp_dir == args_cli.exp_dir, exp_name==args_cli.exp_name)
-        #if exp_dir == args_cli.exp_dir and exp_name == args_cli.exp_name:
-        #   run_id_test = run.id
-        #    print(run_id)
+        if exp_dir == args_cli.exp_dir and exp_name == args_cli.exp_name:
+           run_ids_to_run.append(run.id)
+           print(run.id)
 
     #print("run id:", run_id_test)
     #assert 1 == 0
@@ -268,7 +283,7 @@ def main(
     )  # same as: `wrap_env(env, wrapper="auto")    
     #env._reset_once = False
     env = GripperCloseEnv(env)
-    print("made env")
+    
     env.cfg.recording = True
     device = env.device
     
@@ -296,7 +311,7 @@ def main(
         num_envs=env.num_envs,
         device=device
     )
-    print("made agent")
+    
     
     images = torch.zeros((max_rollout_steps, 2*180, 4*240, 3), device = env.device)
     #print(run_ids_to_run)
@@ -334,6 +349,10 @@ def main(
                 
                 alive_mask = torch.ones(size=(states.shape[0], 1), device=states.device, dtype=bool)
                 vals = []
+                success_mask = torch.zeros(size=(states.shape[0], 1), device=states.device, dtype=bool)
+                succ_step = torch.ones(size=(states.shape[0],), device=states.device, dtype=torch.int32) * 100
+
+                rew_man = env.unwrapped.reward_manager
                 for i in tqdm.tqdm(range(max_rollout_steps), file=sys.stdout):
                         # get action
                         actions = agent.act(
@@ -345,9 +364,10 @@ def main(
                         vals.append(agent.policy.act({"states": states}, role="value")[0])
                         
                         actions[~alive_mask[:,0],:] *= 0.0
+                        actions[success_mask[:,0],:] *= 0.0
                         
                         # take action
-                        next_states, _, terminated, truncated, _ = env.step(actions)
+                        next_states, _, terminated, truncated, infos = env.step(actions)
                 
                         for k in range(env.num_envs):
                             y = k // 4
@@ -355,8 +375,31 @@ def main(
                             images[i, y*180:(y+1)*180, x*240:(x+1)*240, :] = infos['img'][k,:,:,:]
 
                         mask_update = ~torch.logical_or(terminated, truncated)
-                        
                         alive_mask *= mask_update
+
+                        for key in rew_man._episode_sums.keys():
+                            if 'success' in key:
+                                #print(key, rew_man._episode_sums[key])
+                                succ_now  = torch.where(rew_man._episode_sums[key] > 0.0, True, False)
+                                #print("succ_update:", succ_now, succ_now.size())
+                                if (succ_now).any():
+                                    #print("succ step:", succ_step)
+                                    #print("succ step now succ", succ_step[succ_now])
+                                    #print("i:", i)
+                                    succ_step[
+                                        torch.logical_and(
+                                            succ_step == 100,
+                                            succ_now
+                                        )
+                                    ] = i
+                                    #print("new succ step:", succ_step)
+                                    #print("Updated step:", succ_step)
+                                    #print(success_mask.size(), succ_now.size())
+                                    success_mask[succ_now, 0] = True
+                                    #print("new succs:", success_mask)
+                                    #assert 1==0
+                                break
+
                         # get image + value est.
                         # reset environments
                         if env.num_envs > 1:
@@ -371,13 +414,13 @@ def main(
                 # make imgs into gif
                 
                 img_path = f'{args_cli.exp_dir}/{args_cli.exp_name}/{ckpt_fp[:-3]}.gif'
-                save_tensor_as_gif(images, img_path, vals)
+                save_tensor_as_gif(images, img_path, vals, succ_step)
                 #print("Saved to:", img_path)
-                #assert 1 ==0
+                assert 1 ==0
                 # add gif to wandb 
                 wandb.log({
                     "eval_video":wandb.Video(
-                        data_or_path=fp + "/" + ckpt_fp,
+                        data_or_path=img_path,
                         caption=ckpt_fp[:-3],
                         #fps=10,
                         format='gif'
