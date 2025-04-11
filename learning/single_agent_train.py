@@ -154,7 +154,7 @@ def main(
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
 
     
-    sim_dt = 1/200.0 
+    sim_dt = 1/50.0 
     policy_dt = 0.1#50*sim_dt
     dec =  int(policy_dt / sim_dt )
     episode_length_s = 5.0
