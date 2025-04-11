@@ -85,6 +85,7 @@ from wrappers.smoothness_obs_wrapper import SmoothnessObservationWrapper
 from wrappers.close_gripper_action_wrapper import GripperCloseEnv
 from models.default_mixin import Shared
 from models.bro_model import BroAgent, BroActor, BroCritic
+from models.SimBa import SimBaAgent
 from wrappers.DMP_observation_wrapper import DMPObservationWrapper
 from agents.agent_list import AgentList
 from skrl.agents.torch.sac import SAC, SAC_DEFAULT_CONFIG
@@ -118,7 +119,8 @@ from skrl.resources.schedulers.torch import KLAdaptiveLR
 
 # seed for reproducibility
 #set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
-set_seed(random.randint(0, 10000))
+args_cli.seed = random.randint(0, 10000)
+set_seed(args_cli.seed)
 #agent_cfg_entry_point = "skrl_cfg_entry_point"
 agent_cfg_entry_point = f"BroNet_{args_cli.learning_method}_cfg_entry_point"
 #agent_cfg_entry_point = "rl_games_cfg_entry_point"
@@ -362,7 +364,7 @@ def main(
     agent_list = None
     if args_cli.learning_method == "ppo":
         print("Have a ppo actor")
-        models['policy'] = BroAgent(
+        models['policy'] = SimBaAgent( #BroAgent(
             observation_space=env.observation_space, 
             action_space=env.action_space,
             device=device,
