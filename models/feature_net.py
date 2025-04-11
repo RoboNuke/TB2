@@ -7,6 +7,11 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 
+def he_layer_init(layer, bias_const=0.0):
+    torch.nn.init.kaiming_uniform_(layer.weight)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
 class NatureCNN(nn.Module):
     def __init__(self, 
             obs_size,

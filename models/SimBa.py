@@ -4,7 +4,7 @@ import numpy as np
 
 from skrl.models.torch import DeterministicMixin, GaussianMixin, Model
 import math
-from models.feature_net import NatureCNN, layer_init
+from models.feature_net import NatureCNN, layer_init, he_layer_init
 
 class SimBaLayer(nn.Module):
     def __init__(self, size, device):
@@ -12,9 +12,9 @@ class SimBaLayer(nn.Module):
 
         self.path = nn.Sequential(
             nn.LayerNorm(size),
-            layer_init(nn.Linear(size, 4 * size)),
+            he_layer_init(nn.Linear(size, 4 * size)),
             nn.ReLU(),
-            layer_init(nn.Linear(4 * size, size))
+            he_layer_init(nn.Linear(4 * size, size))
         ).to(device)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -28,7 +28,7 @@ class SimBaNet(nn.Module):
         self.layers = []
         self.n = n
         self.input = nn.Sequential(
-            layer_init(nn.Linear(in_size, latent_size))
+            he_layer_init(nn.Linear(in_size, latent_size))
         ).to(device)
 
         self.layers = nn.ModuleList([SimBaLayer(latent_size, device) for i in range(self.n)])
@@ -36,7 +36,7 @@ class SimBaNet(nn.Module):
         
         self.output = nn.Sequential(
             nn.LayerNorm(latent_size),
-            layer_init(nn.Linear(latent_size, out_size))
+            he_layer_init(nn.Linear(latent_size, out_size))
         ).to(device)
 
     def forward(self, x):
@@ -95,7 +95,7 @@ class SimBaAgent(GaussianMixin, DeterministicMixin, Model):
             device=device
         )
 
-        layer_init(self.actor_mean.output[-1], std=0.01*np.sqrt(2)) 
+        he_layer_init(self.actor_mean.output[-1], bias_const=3.0) # 3.0 is about average return for random policy 
  
         self.actor_logstd = nn.Parameter(
             torch.ones(1, self.num_actions) * math.log(act_init_std)
