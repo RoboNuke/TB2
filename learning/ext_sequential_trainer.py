@@ -88,7 +88,7 @@ class ExtSequentialTrainer(Trainer):
         states, infos = self.env.reset()
         
 
-        self.abs_agent.reset_memory()
+        #self.abs_agent.reset_memory()
         self.abs_agent._rollout = 0
         # self.agents._cumulative_rewards = None
         # self.agents._cumulative_timesteps = None
@@ -125,8 +125,13 @@ class ExtSequentialTrainer(Trainer):
                 )[0] # we take only the sampled action
                 
                 # step the environments
+                #print("before len buf:\t", self.env.unwrapped.episode_length_buf)
+                #print("before timout:", self.env.unwrapped.termination_manager.get_term("time_out"))
                 next_states, rewards, terminated, truncated, infos = self.env.step(actions)
-                
+                #print("after timout:", self.env.unwrapped.termination_manager.get_term("time_out"))
+                #print("termed:\t", self.env.unwrapped.termination_manager.terminated)
+                #print("time_outs:\t", self.env.unwrapped.termination_manager.time_outs)
+                #print("after len buf:\t", self.env.unwrapped.episode_length_buf)
                 infos['log']['Episode_Termination/time_out'] = truncated.sum()
                 if vid_env is not None and vid_env.is_recording():
                     self.env.cfg.recording = True

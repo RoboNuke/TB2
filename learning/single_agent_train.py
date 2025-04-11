@@ -77,6 +77,7 @@ from packaging import version
 
 from skrl.utils import set_seed
 from skrl.memories.torch import RandomMemory
+from memory.adaptive_random_sample import AdaptiveRandomMemory
 from skrl.agents.torch.ppo import PPO, PPO_DEFAULT_CONFIG
 from skrl.resources.preprocessors.torch import RunningStandardScaler
 
@@ -335,11 +336,11 @@ def main(
     
     device = env.device
 
-    memory = RandomMemory(
+    memory = RandomMemory( #AdaptiveRandomMemory( #
             memory_size=agent_cfg['agent']["rollouts"], 
             num_envs=env.num_envs // args_cli.num_agents, 
-            device=device,
-            replacement=True
+            device=device#,
+            #replacement=True
         )
     # instantiate the agent's models (function approximators).
     # PPO requires 2 models, visit its documentation for more details

@@ -95,7 +95,7 @@ def ee_angvel(
 ):
     try:
         compute_keypoint_value(env)#, dt=env.physics_dt))
-        if imu_sensor:
+        if False: #imu_sensor:
             return env.scene['ee_imu'].data.lin_ang_b
         else:
             return env.ee_angvel_fd

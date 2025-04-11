@@ -329,15 +329,17 @@ class WandbLoggerPPO(PPO):
 
             # check memory indexing to ensure safe placement
             envs_remaining = self.num_envs - self.memory.env_index
+            
             envs_samp_to_add = torch.sum(~self.finished_envs)
+            
             # storage transition in memory
             # I am assuming we can't add more samlpes than the memory 
             # capacity, this is fine because memory assumes every sample
             # will be added, this can only reduce that amount
+            
             if envs_remaining < envs_samp_to_add:
                 # break it into two samples
-                #self.add_sample_to_memory(
-                self.memory.add_samples(
+                self.add_sample_to_memory(
                     states=states[~self.finished_envs,:][:envs_remaining,:], 
                     actions=actions[~self.finished_envs,:][:envs_remaining,:], 
                     rewards=rewards[~self.finished_envs,:][:envs_remaining,:], 
@@ -347,8 +349,7 @@ class WandbLoggerPPO(PPO):
                     log_prob=self._current_log_prob[~self.finished_envs,:][:envs_remaining,:], 
                     values=values[~self.finished_envs,:][:envs_remaining,:]
                 )
-                #self.add_sample_to_memory(
-                self.memory.add_samples(
+                self.add_sample_to_memory(
                     states=states[~self.finished_envs,:][envs_remaining:,:], 
                     actions=actions[~self.finished_envs,:][envs_remaining:,:], 
                     rewards=rewards[~self.finished_envs,:][envs_remaining:,:], 
@@ -359,8 +360,7 @@ class WandbLoggerPPO(PPO):
                     values=values[~self.finished_envs,:][envs_remaining:,:]
                 )
             else:
-                #self.add_sample_to_memory(
-                self.memory.add_samples(
+                self.add_sample_to_memory(
                     states=states[~self.finished_envs,:], 
                     actions=actions[~self.finished_envs,:], 
                     rewards=rewards[~self.finished_envs,:], 
@@ -536,10 +536,10 @@ class WandbLoggerPPO(PPO):
         super().set_running_mode(mode)
         self.reset_tracking() 
 
-    def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
-        acts, log_probs, outputs = super().act(states, timestep, timesteps)
-        acts[self.finished_envs,:] *= 0.0
-        return acts, log_probs, outputs
+    #def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
+    #    acts, log_probs, outputs = super().act(states, timestep, timesteps)
+    #    acts[self.finished_envs,:] *= 0.0
+    #    return acts, log_probs, outputs
     
 
     def _update(self, timestep: int, timesteps: int):

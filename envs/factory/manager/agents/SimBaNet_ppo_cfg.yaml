@@ -20,16 +20,16 @@ agent:
   learning_epochs: 2
   mini_batches: 100 #32 # 128 steps / minibatch 128 steps / minibatch (256 envs * 50 steps per update)
   discount_factor: 0.99
-  lambda: 0.95
-  learning_rate: 1.0e-6
+  lambda: 0.99
+  learning_rate: 1.0e-7
   learning_rate_scheduler: KLAdaptiveLR
   learning_rate_scheduler_kwargs:
     kl_threshold: 0.01
   # below are not args
   random_timesteps: 0
-  learning_starts: 0
+  learning_starts: 50
 
-  grad_norm_clip: 0.5
+  grad_norm_clip: 0.0 #0.5
   ratio_clip: 0.2
   clip_predicted_values: False
   value_clip: 0.2 #0.0
