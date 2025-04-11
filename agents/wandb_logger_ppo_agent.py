@@ -546,6 +546,24 @@ class WandbLoggerPPO(PPO):
         super()._update(timestep, timesteps)
         # reset optimizer step
         self.resetAdamOptimizerTime(self.optimizer)
+        self.track_data(
+            "Layer Weight Norm / Output", 
+            torch.linalg.norm(self.value.critic.output[-1].weight, dim=None, ord=None).item()
+        )
+        self.track_data(
+            "Layer Weight Norm / Input", 
+            torch.linalg.norm(self.value.critic.input[0].weight, dim=None, ord=None).item()
+        )
+
+        for layer_idx, layer in enumerate(self.value.critic.layers):
+            self.track_data(
+                f"Layer Weight Norm / Layer {layer_idx}-1", 
+                torch.linalg.norm(layer.path[1].weight, dim=None, ord=None).item()
+            )
+            self.track_data(
+                f"Layer Weight Norm / Layer {layer_idx}-2", 
+                torch.linalg.norm(layer.path[3].weight, dim=None, ord=None).item()
+            )
 
     def resetAdamOptimizerTime(self, opt):
         for p,v in opt.state_dict()['state'].items():
