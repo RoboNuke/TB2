@@ -556,7 +556,7 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self):
         """Post initialization."""
         self.sim.render_interval = self.decimation
-
+        
         self.recording = False
         # move this scene here so that the correct number of envs
         # is present in the post_init function, allowing for intelligent 
