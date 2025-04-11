@@ -13,7 +13,8 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": FactoryManagerEnvCfg,
         "BroNet_ppo_cfg_entry_point": f"{agents.__name__}:BroNet_ppo_cfg.yaml",
-        "BroNet_sac_cfg_entry_point": f"{agents.__name__}:BroNet_sac_cfg.yaml"
+        "BroNet_sac_cfg_entry_point": f"{agents.__name__}:BroNet_sac_cfg.yaml",
+        "SimBaNet_ppo_cfg_entry_point": f"{agents.__name__}:SimBaNet_ppo_cfg.yaml"
     },
 )
 
@@ -24,7 +25,8 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": FactoryManagerEnvObsHistCfg,
         "BroNet_ppo_cfg_entry_point": f"{agents.__name__}:BroNet_ppo_cfg.yaml",
-        "BroNet_sac_cfg_entry_point": f"{agents.__name__}:BroNet_sac_cfg.yaml"
+        "BroNet_sac_cfg_entry_point": f"{agents.__name__}:BroNet_sac_cfg.yaml",
+        "SimBaNet_ppo_cfg_entry_point": f"{agents.__name__}:SimBaNet_ppo_cfg.yaml"
     },
 )
 
@@ -35,7 +37,8 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": FactoryManagerEnvActDMPCfg,
         "BroNet_ppo_cfg_entry_point": f"{agents.__name__}:BroNet_ppo_cfg.yaml",
-        "BroNet_sac_cfg_entry_point": f"{agents.__name__}:BroNet_sac_cfg.yaml"
+        "BroNet_sac_cfg_entry_point": f"{agents.__name__}:BroNet_sac_cfg.yaml",
+        "SimBaNet_ppo_cfg_entry_point": f"{agents.__name__}:SimBaNet_ppo_cfg.yaml"
     },
 )
 

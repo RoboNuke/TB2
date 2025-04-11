@@ -43,7 +43,7 @@ def update_z_low(
         for i in range(env.cfg.num_agents):
             l = i * step
             out[f'agent_{i}'] = env.z_low[l]
-        print(torch.min(env.z_low))
+        #print(torch.min(env.z_low))
         return out
 
 

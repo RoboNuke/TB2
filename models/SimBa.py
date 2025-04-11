@@ -36,7 +36,7 @@ class SimBaNet(nn.Module):
         
         self.output = nn.Sequential(
             nn.LayerNorm(latent_size),
-            layer_init(nn.Linear(in_size, out_size))
+            layer_init(nn.Linear(latent_size, out_size))
         ).to(device)
 
     def forward(self, x):
@@ -95,7 +95,7 @@ class SimBaAgent(GaussianMixin, DeterministicMixin, Model):
             device=device
         )
 
-        layer_init(self.actor_mean.output[-2], std=0.01*np.sqrt(2)) 
+        layer_init(self.actor_mean.output[-1], std=0.01*np.sqrt(2)) 
  
         self.actor_logstd = nn.Parameter(
             torch.ones(1, self.num_actions) * math.log(act_init_std)

@@ -122,7 +122,8 @@ from skrl.resources.schedulers.torch import KLAdaptiveLR
 args_cli.seed = random.randint(0, 10000)
 set_seed(args_cli.seed)
 #agent_cfg_entry_point = "skrl_cfg_entry_point"
-agent_cfg_entry_point = f"BroNet_{args_cli.learning_method}_cfg_entry_point"
+#agent_cfg_entry_point = f"BroNet_{args_cli.learning_method}_cfg_entry_point"
+agent_cfg_entry_point = f"SimBaNet_ppo_cfg_entry_point"
 #agent_cfg_entry_point = "rl_games_cfg_entry_point"
 evaluating = False
 
