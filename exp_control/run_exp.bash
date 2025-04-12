@@ -31,7 +31,7 @@ python -m learning.single_agent_train \
     --num_agents $num_agents \
     --exp_name="${names[$exp_idx]}"  \
     --wandb_project="DMP_Observation_Testing" \
-    --wandb_tags="rl_update","train_curriculum","abs_obs_space" \
+    --wandb_tags="rl_update","no_curriculum","abs_obs_space","param_search" \
     --seed=1 \
     --log_smoothness_metrics \
     --learning_method=${learning_method} \
