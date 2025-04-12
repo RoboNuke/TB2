@@ -120,7 +120,7 @@ from skrl.resources.schedulers.torch import KLAdaptiveLR
 
 # seed for reproducibility
 #set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
-args_cli.seed = 42 #random.randint(0, 10000)
+args_cli.seed = random.randint(0, 10000)
 set_seed(args_cli.seed)
 #agent_cfg_entry_point = "skrl_cfg_entry_point"
 #agent_cfg_entry_point = f"BroNet_{args_cli.learning_method}_cfg_entry_point"
