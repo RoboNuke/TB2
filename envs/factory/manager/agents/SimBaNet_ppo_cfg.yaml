@@ -17,7 +17,7 @@ models:
 agent:
   class: PPO
   rollouts: 50
-  learning_epochs: 10
+  learning_epochs: 4
   mini_batches: 100 #32 # 128 steps / minibatch (256 envs * 50 steps per update)
   discount_factor: 0.99
   lambda: 0.99
