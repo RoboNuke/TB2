@@ -95,7 +95,7 @@ class SimBaAgent(GaussianMixin, DeterministicMixin, Model):
             device=device
         )
 
-        he_layer_init(self.critic.output[-1], bias_const=1.3) # 3.0 is about average return for random policy w/curriculum
+        he_layer_init(self.critic.output[-1], bias_const=2.5) # 3.0 is about average return for random policy w/curriculum
         with torch.no_grad():
             self.actor_mean.output[-1].weight *= 0.01
 
