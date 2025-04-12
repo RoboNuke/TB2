@@ -8,7 +8,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 def he_layer_init(layer, bias_const=0.0):
-    torch.nn.init.kaiming_uniform_(layer.weight)
+    torch.nn.init.kaiming_normal_(layer.weight)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 

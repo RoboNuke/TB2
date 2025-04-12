@@ -326,17 +326,31 @@ class WandbLoggerPPO(PPO):
             # time-limit (truncation) boostrapping
             if self._time_limit_bootstrap:
                 rewards += self._discount_factor * values * truncated
-
-            # check memory indexing to ensure safe placement
-            envs_remaining = self.num_envs - self.memory.env_index
             
-            envs_samp_to_add = torch.sum(~self.finished_envs)
+            # alternative approach to deal with termination, see ppo but no matter what it 
+            # goes through every sample in the memory (even if not filled), this way we set 
+            # the actions to zero on termination, and then pass the fixed state in basically
+            self.add_sample_to_memory(
+                states=states, 
+                actions=actions, 
+                rewards=rewards, 
+                next_states=next_states,
+                terminated=torch.logical_or(terminated, self.finished_envs[:,None]), 
+                truncated=truncated, 
+                log_prob=self._current_log_prob, 
+                values=values
+            )
+            """
+
             
             # storage transition in memory
             # I am assuming we can't add more samlpes than the memory 
             # capacity, this is fine because memory assumes every sample
             # will be added, this can only reduce that amount
+            # check memory indexing to ensure safe placement
+            envs_remaining = self.num_envs - self.memory.env_index
             
+            envs_samp_to_add = torch.sum(~self.finished_envs)
             if envs_remaining < envs_samp_to_add:
                 # break it into two samples
                 self.add_sample_to_memory(
@@ -370,7 +384,7 @@ class WandbLoggerPPO(PPO):
                     log_prob=self._current_log_prob[~self.finished_envs,:], 
                     values=values[~self.finished_envs,:]
                 )
-
+            """
         # update successful envs after pushing samples so that state 
         # entering success is added to memory, do it outside the if
         # so that during eval, actions can be set to zero when we
@@ -536,10 +550,10 @@ class WandbLoggerPPO(PPO):
         super().set_running_mode(mode)
         self.reset_tracking() 
 
-    #def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
-    #    acts, log_probs, outputs = super().act(states, timestep, timesteps)
-    #    acts[self.finished_envs,:] *= 0.0
-    #    return acts, log_probs, outputs
+    def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
+        acts, log_probs, outputs = super().act(states, timestep, timesteps)
+        acts[self.finished_envs,:] *= 0.0
+        return acts, log_probs, outputs
     
 
     def _update(self, timestep: int, timesteps: int):
