@@ -26,7 +26,7 @@ python -m learning.single_agent_train \
     --num_agents $num_agents \
     --exp_name=$3 \
     --wandb_project="DMP_Observation_Testing" \
-    --wandb_tags="rl_update","no_curriculum","mid_memory" \
+    --wandb_tags="rl_update","curriculum","mid_memory" \
     --seed=1 \
     --log_smoothness_metrics \
     --learning_method=ppo \
