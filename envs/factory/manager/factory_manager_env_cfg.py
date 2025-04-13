@@ -397,7 +397,7 @@ class RewardsCfg:
             "a" : 5.0,
             "b" : 4.0
         },
-        weight=1.0
+        weight=1.0/3.0
     )
 
     keypoint_coarse = RewTerm(
@@ -406,7 +406,7 @@ class RewardsCfg:
             "a" : 50.0,
             "b" : 2.0
         },
-        weight=1.0
+        weight=1.0/3.0
     )
 
     keypoint_fine = RewTerm(
@@ -415,7 +415,7 @@ class RewardsCfg:
             "a" : 100.0,
             "b" : 0.0
         },
-        weight=1.0
+        weight=1.0/3.0
     )
 
     engaged = RewTerm(
@@ -424,7 +424,7 @@ class RewardsCfg:
             "success_threshold" : 0.9,
             "check_rot" : False
         },
-        weight=1.0
+        weight=1.0/3.0
     )
     
     success = RewTerm(
@@ -433,17 +433,17 @@ class RewardsCfg:
             "success_threshold" : 0.04,
             "check_rot" : False
         },
-        weight=1.0
+        weight=1.0/3.0
     )
-    """
+    
     broke_peg_failure = RewTerm(
         func=fac_mdp_rew.force_check,
         params={
             "threshold" : 5.0
         },
-        weight=-2.0
+        weight=-2.0 / 3.0
     )
-    """
+    
     """
     success = RewTerm(
         func = mdp.is_terminated_term,

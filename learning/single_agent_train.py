@@ -9,13 +9,14 @@ parser = argparse.ArgumentParser(description="Train an RL agent with skrl.")
 # exp
 parser.add_argument("--task", type=str, default="TB2-FPiH-Franka-Rel_IK-v0", help="Name of the task.")
 parser.add_argument("--num_envs", type=int, default=256, help="Number of environments to simulate.")
-parser.add_argument("--seed", type=int, default=1, help="Seed used for the environment")
+parser.add_argument("--seed", type=int, default=-1, help="Seed used for the environment")
 parser.add_argument("--max_steps", type=int, default=10240000, help="RL Policy training iterations.")
 parser.add_argument("--force_encoding", type=str, default=None, help="Which type of force encoding to use if force is included")
 parser.add_argument("--num_agents", type=int, default=1, help="How many agents to train in parallel")
 parser.add_argument("--learning_method", type=str, default="ppo", help="Which learning approach to use, currently ppo and sac are supported")
 parser.add_argument("--dmp_obs", default=False, action="store_true", help="Should we use dmps for the observation space")
 parser.add_argument("--init_eval", default=True, action="store_false", help="When added, we will not perform an eval before any training has happened")
+parser.add_argument("--use_curriculum", default=False, action="store_true", help="Turns on z height curiculum")
 
 # logging
 parser.add_argument("--exp_name", type=str, default=None, help="What to name the experiment on WandB")
@@ -120,7 +121,8 @@ from skrl.resources.schedulers.torch import KLAdaptiveLR
 
 # seed for reproducibility
 #set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
-args_cli.seed = random.randint(0, 10000)
+if args_cli.seed == -1:
+    args_cli.seed = random.randint(0, 10000)
 set_seed(args_cli.seed)
 #agent_cfg_entry_point = "skrl_cfg_entry_point"
 #agent_cfg_entry_point = f"BroNet_{args_cli.learning_method}_cfg_entry_point"
@@ -175,7 +177,21 @@ def main(
         env_cfg.actions.arm_action.dmp_cfg.dt = sim_dt
         agent_cfg['agent']['logging_tags']['act_type'] = "DMP"
 
+    env_cfg.use_curriculum = True
+    if not agent_cfg['use_curriculum'] and not args_cli.use_curriculum:
+        del env_cfg.curriculum.init_height_sampling
+        env_cfg.use_curriculum = False
 
+    if agent_cfg["break_force"] < 0:
+        del env_cfg.rewards.broke_peg_failure
+
+    if agent_cfg['seed'] >= 0:
+        args_cli.seed = agent_cfg['seed']
+        set_seed(args_cli.seed)
+        agent_cfg['seed'] = args_cli.seed
+
+    print("Seed:", agent_cfg['seed'], args_cli.seed)
+    #print(env_cfg)
     # random sample some parameters
     agent_cfg['agent']['learning_rate_scheduler'] = KLAdaptiveLR
     """
@@ -196,15 +212,6 @@ def main(
     agent_cfgs = [copy.deepcopy(agent_cfg) for _ in range(args_cli.num_agents)]
     # randomly sample a seed if seed = -1
     for agent_idx, a_cfg in enumerate(agent_cfgs):
-        a_cfg["seed"] = args_cli.seed
-        if a_cfg["seed"] == -1 or agent_idx > 0:
-            a_cfg["seed"] = random.randint(0, 10000)
-            
-        print("Seed:", a_cfg['seed'])
-        # set the agent and environment seed from command line
-        # note: certain randomization occur in the environment initialization so we set the seed here
-        if agent_idx == 0:
-            env_cfg.seed = a_cfg["seed"]
 
         # specify directory for logging experiments
         if args_cli.exp_dir is None:
@@ -372,6 +379,7 @@ def main(
             action_space=env.action_space,
             device=device,
             act_init_std = agent_cfg['models']['act_init_std'],
+            critic_output_init_mean = agent_cfg['models']['critic_output_init_mean']
             force_type = args_cli.force_encoding,
             critic_n = agent_cfg['models']['critic']['n'],
             critic_latent = agent_cfg['models']['critic']['latent_size'],

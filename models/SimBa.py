@@ -53,7 +53,7 @@ class SimBaAgent(GaussianMixin, DeterministicMixin, Model):
             action_space,
             device, 
             act_init_std = 0.60653066, # -0.5 value used in maniskill
-
+            critic_output_init_mean = 0.0,
             force_type=None, 
             critic_n = 1, 
             actor_n = 2,
@@ -95,7 +95,7 @@ class SimBaAgent(GaussianMixin, DeterministicMixin, Model):
             device=device
         )
 
-        he_layer_init(self.critic.output[-1], bias_const=2.5) # 3.0 is about average return for random policy w/curriculum
+        he_layer_init(self.critic.output[-1], bias_const=critic_output_init_mean) # 2.5 is about average return for random policy w/curriculum
         with torch.no_grad():
             self.actor_mean.output[-1].weight *= 0.01
 

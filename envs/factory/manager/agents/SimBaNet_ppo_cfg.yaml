@@ -1,27 +1,30 @@
-seed: 42
+seed: -1
 num_envs: 256
+use_curriculum: True
+break_force: -1
 #replicate_physics: False
 #scene:
 #  replicate_physics: False
 # this is the parameters for the BroNet shared model
 models:
   force_encoding: None
-  act_init_std: 0.16 #0.60653066 0.25 #
+  act_init_std: 0.13 #0.60653066 0.25 #
+  critic_output_init_mean: 2.5
   critic:
     n: 2
     latent_size: 1024
   actor:
     n: 1
-    latent_size: 256 # default should be 128 but it doesn't feel right to be so small
+    latent_size: 128 # default should be 128 but it doesn't feel right to be so small
 
 agent:
   class: PPO
   rollouts: 50
   learning_epochs: 4
-  mini_batches: 100 #32 # 128 steps / minibatch (256 envs * 50 steps per update)
+  mini_batches: 32 #32 # 128 steps / minibatch (256 envs * 50 steps per update)
   discount_factor: 0.99
   lambda: 0.99
-  learning_rate: 5.0e-6
+  learning_rate: 1.0e-5
   learning_rate_scheduler: KLAdaptiveLR
   learning_rate_scheduler_kwargs:
     kl_threshold: 0.01
