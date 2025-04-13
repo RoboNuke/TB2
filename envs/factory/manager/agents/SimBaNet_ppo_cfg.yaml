@@ -8,7 +8,7 @@ break_force: -1
 # this is the parameters for the BroNet shared model
 models:
   force_encoding: None
-  act_init_std: 0.13 #0.60653066 0.25 #
+  act_init_std: 0.10 #0.60653066 0.25 #
   critic_output_init_mean: 0.0 #2.5
   critic:
     n: 2
@@ -28,6 +28,7 @@ agent:
   learning_rate_scheduler: KLAdaptiveLR
   learning_rate_scheduler_kwargs:
     kl_threshold: 0.01
+    min_lr: 1e-9
   # below are not args
   random_timesteps: 0
   learning_starts: 0
@@ -50,8 +51,8 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
-    tags: ['debug_apr12', 'no_curriculum', 'mb_32', 'ep_4']
-    group: 'debug_apr12_no_curr'
+    tags: ['debug_apr12', 'no_curriculum', 'mb_32', 'ep_4', 'mlr_1e-9', 'act_01']
+    group: 'debug_apr12_no_curr_minLR'
     project: 'DMP_Observation_Testing'
   
   logging_tags:
