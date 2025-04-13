@@ -240,10 +240,10 @@ def reset_held_asset(
     grasp_time = 0.0
     ctrl_target_joint_pos = robot.data.joint_pos.clone()
     ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
-    while grasp_time < 0.25:
-        robot.set_joint_position_target(ctrl_target_joint_pos)
-        step_sim_no_action(env)
-        grasp_time += env.sim.get_physics_dt()
+    #while grasp_time < 0.25:
+    #    robot.set_joint_position_target(ctrl_target_joint_pos)
+    #    step_sim_no_action(env)
+    #    grasp_time += env.sim.get_physics_dt()
 
     physics_sim_view.set_gravity(carb.Float3(*env.cfg.sim.gravity))
     
@@ -257,6 +257,59 @@ def init_imu(
 ):
     env.traj_data = torch.zeros((env.num_envs, 19*env.cfg.decimation), device=env.device)
     #env.scene['ee_imu']
+
+
+def reset_master(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor
+):
+    if env_ids.size()[0] == env.num_envs:
+        # total reset, call everythign
+        set_assets_to_default_pose(env, env_ids)
+        set_franka_to_default_pose(env, env_ids)
+        reset_fixed_asset(env, env_ids)
+        #params={
+        #    #"pose_range": {"x": (0.565, 0.665), "y": (-0.1, 0.1), "yaw": (3.14159/2 - 3.14159/3, 3.14159/2 + 3.14159/3)},
+        #    "pose_range": {"x": (0.615, 0.615)},
+        #    "velocity_range": {},
+        #    #"asset_cfg": SceneEntityCfg("hole", body_names="Hole"),
+        #},
+        reset_franka_above_fixed(env, env_ids)
+        reset_held_asset(env, env_ids)
+        # store the current state
+        env.start_state = env.scene.get_state()
+        print("entering for")
+        for art_name in env.scene.articulations.keys():
+            print(art_name)
+            print(env.start_state['articulation'].keys())
+            env.scene[art_name].data.default_root_state[:,:7] = env.start_state['articulation'][art_name]['root_pose']
+            env.scene[art_name].data.default_root_state[:,7:] *= 0.0 
+
+        print("full reset")
+    else:
+        # partial reset, reset indexes to fixed state
+        # this shuffles the tensors
+        #permutation = torch.randperm(env.num_envs)
+        #for key in env.start_state:
+        #    for key2 in env.start_state[key]:
+        #        for key3 in env.start_state[key][key2]:
+        #            env.start_state[key][key2][key3][:] = env.start_state[key][key2][key3][permutation]
+        #env.scene.reset_to(env.start_state) #, env_ids)
+        #for art_name in env.scene.articulations.keys():
+        #    env.scene.articulations[art_name].write_root_pose_to_sim(
+        #        env.start_state['articulation'][art_name]['root_pose'], 
+        #        env_ids
+        #    )
+        for art_name in env.scene.articulations.keys():
+            env.scene[art_name].data.default_root_state = env.scene[art_name].data.root_state_w 
+            env.scene[art_name].data.default_root_state[:,:3] -= env.scene.env_origins
+            env.scene[art_name].data.default_root_state[env_ids,:7] = env.start_state['articulation'][art_name]['root_pose'][env_ids,:]
+            env.scene[art_name].data.default_root_state[:,7:] *= 0.0 
+
+        env.scene["held_asset"].reset()
+        #set_assets_to_default_pose(env, torch.tensor(range(env.num_envs)))
+        #set_franka_to_default_pose(env, torch.tensor(range(env.num_envs)))
+        print("partial reset")
 
 def reset_franka_above_fixed(
     env: ManagerBasedEnv,

@@ -75,7 +75,7 @@ import torch
 seed = random.randint(0, 10000)
 print(8817)
 set_seed(8817)
-agent_cfg_entry_point = f"BroNet_ppo_cfg_entry_point"
+agent_cfg_entry_point = f"SimBaNet_ppo_cfg_entry_point"
 task = "TB2-Factor-PiH-v0"
 
 @hydra_task_config(task, agent_cfg_entry_point)
@@ -89,7 +89,7 @@ def main(
     sim_dt = 1/50.0 
     policy_dt = 0.1#50*sim_dt
     dec =  int(policy_dt / sim_dt )
-    episode_length_s = 0.2
+    episode_length_s = 100.0
 
     env_cfg.episode_length_s = episode_length_s
     env_cfg.sim.dt = sim_dt
@@ -104,16 +104,24 @@ def main(
         cfg=env_cfg, 
         render_mode="rgb_array" 
     )
+    env = GripperCloseEnv(env)
     env = SkrlVecEnvWrapper(
         env, 
         ml_framework="torch"
     )  # same as: `wrap_env(env, wrapper="auto")    
     #env._reset_once = False
-    env = GripperCloseEnv(env)
     env.reset()
+    env_reset = torch.zeros((1,), dtype=torch.int32)
     for i in range(1000):
         #print(f"step {i}")
-        env.step(0.0 * torch.from_numpy(env.action_space.sample()).repeat(env.num_envs, 1))
+        if i % 10 == 0 and not i % 50 == 0:
+            env.unwrapped.reset(env_ids=env_reset)
+            env_reset[0] = (env_reset[0] + 1) % env_cfg.scene.num_envs
+        elif i % 50 == 0:
+            env.reset()
+
+        env.step(0.0 * torch.from_numpy(env.action_space.sample()).repeat(env.num_envs, 1) + 1)
+
         
     #for k in range(1000):
     #    env.step(0.0 * torch.from_numpy(env.action_space.sample()).repeat(env.num_envs, 1))

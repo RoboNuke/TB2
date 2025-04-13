@@ -551,10 +551,10 @@ class WandbLoggerPPO(PPO):
         super().set_running_mode(mode)
         self.reset_tracking() 
 
-    def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
-        acts, log_probs, outputs = super().act(states, timestep, timesteps)
-        acts[self.finished_envs,:] *= 0.0
-        return acts, log_probs, outputs
+    #def act(self, states: torch.Tensor, timestep: int, timesteps: int) -> torch.Tensor:
+    #    acts, log_probs, outputs = super().act(states, timestep, timesteps)
+    #    acts[self.finished_envs,:] *= 0.0
+    #    return acts, log_probs, outputs
     
 
     def _update(self, timestep: int, timesteps: int):

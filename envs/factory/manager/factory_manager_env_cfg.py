@@ -354,7 +354,11 @@ class EventCfg:
     #    func=fac_mdp_events.init_ft_sensor,
     #    mode="startup"
     #)
-
+    reset_scene = EventTerm(
+        func = fac_mdp_events.reset_master,
+        mode="reset"
+    )
+    """
     reset_assets = EventTerm(
         func = fac_mdp_events.set_assets_to_default_pose,
         mode="reset"
@@ -386,7 +390,7 @@ class EventCfg:
         func=fac_mdp_events.reset_held_asset,
         mode="reset"
     )
-
+    """
     
 @configclass
 class RewardsCfg:
