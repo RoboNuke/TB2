@@ -1,6 +1,6 @@
 seed: -1
 num_envs: 256
-use_curriculum: True
+use_curriculum: False
 break_force: -1
 #replicate_physics: False
 #scene:
@@ -9,7 +9,7 @@ break_force: -1
 models:
   force_encoding: None
   act_init_std: 0.10 #0.60653066 0.25 #
-  critic_output_init_mean: 1.5
+  critic_output_init_mean: 0.0
   critic:
     n: 2
     latent_size: 1024
@@ -51,8 +51,8 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
-    tags: ['debug_apr12', 'curriculum', 'mb_32', 'ep_4', 'mlr_1e-9', 'act_01']
-    group: 'debug_apr12_curr_minLR'
+    tags: ['debug_apr12', 'no_curriculum', 'mb_32', 'ep_4', 'mlr_1e-9', 'act_01']
+    group: 'debug_apr12_no_curr_minLR'
     project: 'DMP_Observation_Testing'
   
   logging_tags:

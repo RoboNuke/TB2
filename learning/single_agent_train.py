@@ -178,7 +178,7 @@ def main(
         agent_cfg['agent']['logging_tags']['act_type'] = "DMP"
 
     env_cfg.use_curriculum = True
-    if not agent_cfg['use_curriculum'] and not args_cli.use_curriculum:
+    if not agent_cfg['use_curriculum']:
         del env_cfg.curriculum.init_height_sampling
         env_cfg.use_curriculum = False
 
