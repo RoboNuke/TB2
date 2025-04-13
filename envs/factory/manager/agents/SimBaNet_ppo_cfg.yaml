@@ -1,6 +1,6 @@
 seed: -1
 num_envs: 256
-use_curriculum: False
+use_curriculum: True
 break_force: -1
 #replicate_physics: False
 #scene:
@@ -50,8 +50,8 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
-    tags: ['debug_apr11', 'no_curriculum', 'mb_32', 'ep_4']
-    group: 'debug_apr12_no_curr'
+    tags: ['debug_apr12', 'curriculum', 'mb_32', 'ep_4']
+    group: 'debug_apr12_curr'
     project: 'DMP_Observation_Testing'
   
   logging_tags:

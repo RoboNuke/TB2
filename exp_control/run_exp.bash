@@ -25,7 +25,6 @@ python -m learning.single_agent_train \
     --num_envs=$((256 * $num_agents)) \
     --num_agents $num_agents \
     --exp_name=$3 \
-    --seed=1 \
     --log_smoothness_metrics \
     --learning_method=ppo \
     --no_vids 
@@ -34,3 +33,4 @@ python -m learning.single_agent_train \
 ## "${names[$exp_idx]}"  \
 #    --wandb_project="DMP_Observation_Testing" \
 #    --wandb_tags="rl_update","no_curriculum","pih_apr11" \
+    #--seed=1 \
