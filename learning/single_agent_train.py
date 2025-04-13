@@ -108,7 +108,9 @@ import envs.FPiH.config.franka
 import envs.factory.direct
 import envs.factory.manager
 from isaaclab_tasks.utils.hydra import hydra_task_config
-from isaaclab_tasks.utils.wrappers.skrl import SkrlVecEnvWrapper
+#from isaaclab_tasks.utils.wrappers.skrl import SkrlVecEnvWrapper
+
+from isaaclab_rl.skrl import SkrlVecEnvWrapper
 from agents.wandb_logger_ppo_agent import WandbLoggerPPO
 from agents.wandb_logger_sac_agent import WandbLoggerSAC
 
@@ -121,8 +123,8 @@ from skrl.resources.schedulers.torch import KLAdaptiveLR
 
 # seed for reproducibility
 #set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
-if args_cli.seed == -1:
-    args_cli.seed = random.randint(0, 10000)
+#if args_cli.seed == -1:
+args_cli.seed = random.randint(0, 10000)
 set_seed(args_cli.seed)
 #agent_cfg_entry_point = "skrl_cfg_entry_point"
 #agent_cfg_entry_point = f"BroNet_{args_cli.learning_method}_cfg_entry_point"
@@ -184,16 +186,18 @@ def main(
 
     if agent_cfg["break_force"] < 0:
         del env_cfg.rewards.broke_peg_failure
+        del env_cfg.terminations.broke_peg
 
-    if agent_cfg['seed'] >= 0:
-        args_cli.seed = agent_cfg['seed']
-        set_seed(args_cli.seed)
-        agent_cfg['seed'] = args_cli.seed
+    #if agent_cfg['seed'] >= 0:
+    #    #print("setting seed")
+    #    #args_cli.seed = agent_cfg['seed']
+    #    #set_seed(args_cli.seed)
+    agent_cfg['seed'] = args_cli.seed
 
     print("Seed:", agent_cfg['seed'], args_cli.seed)
     #print(env_cfg)
     # random sample some parameters
-    agent_cfg['agent']['learning_rate_scheduler'] = KLAdaptiveLR
+    #agent_cfg['agent']['learning_rate_scheduler'] = KLAdaptiveLR
     """
     import numpy as np
     agent_cfg['agent']['param_space'] = {}

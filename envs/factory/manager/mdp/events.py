@@ -279,7 +279,7 @@ def reset_master(
 
         # store the current state
         env.start_state = env.scene.get_state()
-        print("full reset")
+        #print("full reset")
     else:
         # partial reset, reset indexes to fixed state
         # this shuffles the tensors
@@ -309,7 +309,7 @@ def reset_master(
         env.scene["held_asset"].reset()
         #set_assets_to_default_pose(env, torch.tensor(range(env.num_envs)))
         #set_franka_to_default_pose(env, torch.tensor(range(env.num_envs)))
-        print("partial reset")
+        #print("partial reset")
 
 def reset_franka_above_fixed(
     env: ManagerBasedEnv,

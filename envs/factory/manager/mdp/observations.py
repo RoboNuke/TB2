@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from isaaclab.assets import RigidObject
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils.math import subtract_frame_transforms, quat_apply
-#from omni.isaac.core.articulations import ArticulationView
 
 import isaacsim.core.utils.torch as torch_utils
 

@@ -203,12 +203,12 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         offset = ImuCfg.OffsetCfg(pos=[0.0, 0.0, 0.107])
     )
 
-    #force_torque_sensor: ForceTorqueSensorCfg = ForceTorqueSensorCfg(
-    #    prim_path="/World/envs/env_.*/Robot",
-    #    history_length=1,
-    #    debug_vis = False,
-    #    update_period = 0,
-    #)
+    force_torque_sensor: ForceTorqueSensorCfg = ForceTorqueSensorCfg(
+        prim_path="/World/envs/env_.*/Robot",
+        history_length=1,
+        debug_vis = False,
+        update_period = 0,
+    )
 
 
 ##
@@ -281,10 +281,10 @@ class ObservationsCfg:
 
         prev_action = ObsTerm(func=mdp.last_action)
         
-        #force_torque_reading = ObsTerm(
-        #    func=fac_mdp_obs.force_torque_sensor,
-        #    params = {'scaled':True}
-        #)
+        force_torque_reading = ObsTerm(
+            func=fac_mdp_obs.force_torque_sensor,
+            params = {'scaled':True}
+        )
 
 
         """ What factory Uses by default        
@@ -304,9 +304,9 @@ class ObservationsCfg:
     class InfoCfg(ObsGroup):
         """Observations for information tracking"""
 
-        #dmg_force = ObsTerm(
-        #    func=fac_mdp_obs.force_torque_sensor
-        #)
+        dmg_force = ObsTerm(
+            func=fac_mdp_obs.force_torque_sensor
+        )
 
         joint_vel = ObsTerm(func=mdp.joint_vel_rel)
 
@@ -456,13 +456,14 @@ class RewardsCfg:
             "term_keys":["success"]
         }
     )
-    #peg_broke = RewTerm(
-    #    func = mdp.is_terminated_term,
-    #    weight=-1,
-    #    params={
-    #        "term_keys":["peg_broke"]
-    #    }
-    #)
+
+    peg_broke = RewTerm(
+        func = mdp.is_terminated_term,
+        weight=-1,
+        params={
+            "term_keys":["peg_broke"]
+        }
+    )
     
     # factory includes these but seems to be zero reward
     l2_action_penalty = RewTerm(
@@ -486,20 +487,30 @@ def random_stop(env: ManagerBasedRLEnv) -> torch.Tensor:
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
-    time_out = DoneTerm(func=mdp.time_out, time_out=True)
+    time_out = DoneTerm(
+        func=mdp.time_out, 
+        time_out=True
+    )
 
-    #broke_peg = DoneTerm(
-    #    func=fac_mdp_term.force_check,
-    #    params= {
-    #        "threshold":5.0
-    #    },
-    #    time_out=False
-    #)
+    broke_peg = DoneTerm(
+        func=fac_mdp_term.force_check,
+        params= {
+            "threshold":5.0
+        },
+        time_out=False
+    )
 
     success = DoneTerm(
-        func=fac_mdp_term.factory_success,
+        fac_mdp_rew.currently_inrange,
+        params={
+            "success_threshold" : 0.04,
+            "check_rot" : False
+        },
         time_out = False
     )
+    #    func=fac_mdp_term.factory_success,
+    #    time_out = False
+    #)
     #random = DoneTerm(func=random_stop, time_out=False)
 
 

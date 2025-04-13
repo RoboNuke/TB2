@@ -77,6 +77,7 @@ class WandbLoggerPPO(PPO):
             self.memory.create_tensor(name="actions", size=self.action_space, dtype=torch.float32)
             self.memory.create_tensor(name="rewards", size=1, dtype=torch.float32)
             self.memory.create_tensor(name="terminated", size=1, dtype=torch.bool)
+            self.memory.create_tensor(name="truncated", size=1, dtype=torch.bool)
             self.memory.create_tensor(name="log_prob", size=1, dtype=torch.float32)
             self.memory.create_tensor(name="values", size=1, dtype=torch.float32)
             self.memory.create_tensor(name="returns", size=1, dtype=torch.float32)
@@ -385,7 +386,9 @@ class WandbLoggerPPO(PPO):
                         if 'success' in k:
                             rew = reward_dist[k.split("/")[-1]]
                             #print("succ rew:", rew.T)
-                            self.count_stats['success'][rew>1.0e-6] = 1.0
+                            if torch.any(rew > 1.0e-8):
+                                print("Transition:", rew.T)
+                            self.count_stats['success'][terminated] += 1.0
                         elif 'engaged' in k:
                             rew = reward_dist[k.split("/")[-1]]
                             #print("engaged rew:", rew.T)

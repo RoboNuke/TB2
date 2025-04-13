@@ -242,7 +242,7 @@ class ExtSequentialTrainer(Trainer):
                         timesteps=self.timesteps
                     )[-1]['mean_actions'] # this makes the policy deterministic (no sampling)
                     
-                    actions[~alive_mask, :] *= 0.0
+                    actions[~alive_mask[:,0], :] *= 0.0
                     # step the environments
                     next_states, rewards, terminated, truncated, infos = self.env.step(actions)
                     

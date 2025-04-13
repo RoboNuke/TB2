@@ -23,6 +23,7 @@ def factory_success(
         success_threshold = env.cfg_task.success_threshold
     )
 
+    
     # check if arm is not moving
     is_still = torch.where(torch.linalg.norm(mdp.joint_vel_rel(env),  axis=1) < 1.0e-3, True, False)
     if torch.logical_and(in_range, is_still).any():
