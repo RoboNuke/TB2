@@ -361,11 +361,13 @@ def main(
     for a_cfg in agent_cfgs:
         a_cfg['agent']['experiment']['wandb'] = args_cli.no_log_wandb
         wandb_kwargs = {
-            "project":args_cli.wandb_project,
+            "project":a_cfg['agent']['experiment']['project'], #args_cli.wandb_project,
             "entity":args_cli.wandb_entity,
             "api_key":args_cli.wandb_api_key,
-            "tags":args_cli.wandb_tags,
-            "group":args_cli.wandb_group,
+            "tags":a_cfg['agent']['experiment']['tags'],
+            "group":a_cfg['agent']['experiment']['group'],
+            #"tags":args_cli.wandb_tags,
+            #"group":args_cli.wandb_group,
             "run_name":a_cfg["agent"]["experiment"]["experiment_name"]
         }
 
@@ -379,7 +381,7 @@ def main(
             action_space=env.action_space,
             device=device,
             act_init_std = agent_cfg['models']['act_init_std'],
-            critic_output_init_mean = agent_cfg['models']['critic_output_init_mean']
+            critic_output_init_mean = agent_cfg['models']['critic_output_init_mean'],
             force_type = args_cli.force_encoding,
             critic_n = agent_cfg['models']['critic']['n'],
             critic_latent = agent_cfg['models']['critic']['latent_size'],

@@ -50,6 +50,9 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
+    tags: ['debug_apr11', 'no_curriculum', 'mb_32', 'ep_4']
+    group: 'debug_apr12_no_curr'
+    project: 'DMP_Observation_Testing'
   
   logging_tags:
     obs_type: "basic" # "basic", "policy_history", "history", "DMP"
