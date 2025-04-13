@@ -29,10 +29,10 @@ parser.add_argument("--no_vids", action="store_true", default=False, help="Set u
 # wandb
 parser.add_argument("--no_log_wandb", action="store_false", default=True, help="Disables the wandb logger")
 parser.add_argument("--wandb_entity", type=str, default="hur", help="Name of wandb entity")
-parser.add_argument("--wandb_project", type=str, default="Tester", help="Name of wandb project")
+#parser.add_argument("--wandb_project", type=str, default="Tester", help="Name of wandb project")
 parser.add_argument("--wandb_api_key", type=str, default="-1", help="API key for WandB")
-parser.add_argument('--wandb_tags', nargs='*', default=[], help="WandB Tags to be applied to this run")
-parser.add_argument("--wandb_group", type=str, default=None, help="Group to organize wandb")
+#parser.add_argument('--wandb_tags', nargs='*', default=[], help="WandB Tags to be applied to this run")
+#parser.add_argument("--wandb_group", type=str, default=None, help="Group to organize wandb")
 
 
 # append AppLauncher cli args
@@ -40,7 +40,7 @@ AppLauncher.add_app_launcher_args(parser)
 
 # parse the arguments
 args_cli, hydra_args = parser.parse_known_args()
-args_cli.wandb_tags = args_cli.wandb_tags[0].split(",")
+#args_cli.wandb_tags = args_cli.wandb_tags[0].split(",")
 #print("Tags:", args_cli.wandb_tags)
 #assert 1 ==0
 if not args_cli.no_vids:  
