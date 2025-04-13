@@ -96,6 +96,9 @@ def main(
     env_cfg.decimation = dec
     env_cfg.sim.render_interval = dec
 
+    env_cfg.use_curriculum = True
+    env_cfg.num_agents = 1
+
     env = gym.make(
         task, 
         cfg=env_cfg, 

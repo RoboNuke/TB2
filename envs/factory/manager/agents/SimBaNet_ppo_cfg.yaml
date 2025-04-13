@@ -24,11 +24,11 @@ agent:
   mini_batches: 32 #32 # 128 steps / minibatch (256 envs * 50 steps per update)
   discount_factor: 0.99
   lambda: 0.99
-  learning_rate: 1.0e-7
+  learning_rate: 1.0e-10
   learning_rate_scheduler: KLAdaptiveLR
   learning_rate_scheduler_kwargs:
     kl_threshold: 0.05
-    min_lr: 1.0e-9
+    min_lr: 1.0e-15
   # below are not args
   random_timesteps: 0
   learning_starts: 0
@@ -51,9 +51,9 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
-    tags: ['debug_apr12', 'curriculum', 'mb_32', 'ep_4', 'mlr_1e-12', 'act_01','lr_1e-9']
+    tags: ['debug_apr12', 'curriculum', 'mb_32', 'ep_4', 'mlr_1e-15', 'act_01','lr_1e-10']
     group: 'debug_apr12_curr_minLR'
-    project: "Tester" #'DMP_Observation_Testing'
+    project: "DMP_Observation_Testing" #'DMP_Observation_Testing'
   
   logging_tags:
     obs_type: "basic" # "basic", "policy_history", "history", "DMP"
