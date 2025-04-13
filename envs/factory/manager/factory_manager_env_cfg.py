@@ -431,14 +431,14 @@ class RewardsCfg:
         weight=1.0/3.0
     )
     
-    success = RewTerm(
-        func=fac_mdp_rew.currently_inrange,
-        params={
-            "success_threshold" : 0.04,
-            "check_rot" : False
-        },
-        weight=1.0/3.0
-    )
+    #success = RewTerm(
+    #    func=fac_mdp_rew.currently_inrange,
+    #    params={
+    #        "success_threshold" : 0.04,
+    #        "check_rot" : False
+    #    },
+    #    weight=1.0/3.0
+    #)
     
     #broke_peg_failure = RewTerm(
     #    func=fac_mdp_rew.force_check,
@@ -448,15 +448,22 @@ class RewardsCfg:
     #    weight=-2.0 / 3.0
     #)
     
-    """
+    
     success = RewTerm(
         func = mdp.is_terminated_term,
-        weight=1.0,
+        weight=1/3.0,
         params={
             "term_keys":["success"]
         }
     )
-    """
+    #peg_broke = RewTerm(
+    #    func = mdp.is_terminated_term,
+    #    weight=-1,
+    #    params={
+    #        "term_keys":["peg_broke"]
+    #    }
+    #)
+    
     # factory includes these but seems to be zero reward
     l2_action_penalty = RewTerm(
         func=mdp.action_l2,
@@ -481,18 +488,18 @@ class TerminationsCfg:
     """Termination terms for the MDP."""
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
 
-    """broke_peg = DoneTerm(
-        func=fac_mdp_term.force_check,
-        params= {
-            "threshold":5.0
-        },
-        time_out=False
-    )
+    #broke_peg = DoneTerm(
+    #    func=fac_mdp_term.force_check,
+    #    params= {
+    #        "threshold":5.0
+    #    },
+    #    time_out=False
+    #)
 
     success = DoneTerm(
         func=fac_mdp_term.factory_success,
         time_out = False
-    )"""
+    )
     #random = DoneTerm(func=random_stop, time_out=False)
 
 

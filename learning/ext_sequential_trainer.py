@@ -178,14 +178,14 @@ class ExtSequentialTrainer(Trainer):
             
 
             # reset environments
-            #if self.env.num_envs > 1:
-            #    states = next_states
-            #else:
-            if terminated.any() or truncated.any():
-                with torch.no_grad():
-                    states, infos = self.env.reset()
-            else:
+            if self.env.num_envs > 1:
                 states = next_states
+            else:
+                if terminated.any() or truncated.any():
+                    with torch.no_grad():
+                        states, infos = self.env.reset()
+                else:
+                    states = next_states
 
             self.training_timestep += 1
 
@@ -242,6 +242,7 @@ class ExtSequentialTrainer(Trainer):
                         timesteps=self.timesteps
                     )[-1]['mean_actions'] # this makes the policy deterministic (no sampling)
                     
+                    actions[~alive_mask, :] *= 0.0
                     # step the environments
                     next_states, rewards, terminated, truncated, infos = self.env.step(actions)
                     

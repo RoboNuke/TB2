@@ -85,7 +85,7 @@ def main(
     agent_cfg: dict
 ):
     print("start hydra")
-    env_cfg.scene.num_envs = 2
+    env_cfg.scene.num_envs = 4
     env_cfg.scene.replicate_physics = True
     sim_dt = 1/50.0 
     policy_dt = 0.1#50*sim_dt
@@ -121,8 +121,7 @@ def main(
             env.unwrapped.reset(env_ids=env_reset)
             env_reset[0] = (env_reset[0] + 1) % env_cfg.scene.num_envs
         elif i % 50 == 0:
-            env.reset()
-
+            env.unwrapped.reset()
         env.step(0.0 * torch.from_numpy(env.action_space.sample()).repeat(env.num_envs, 1) + 1)
 
         

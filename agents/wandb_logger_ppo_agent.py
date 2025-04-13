@@ -85,7 +85,6 @@ class WandbLoggerPPO(PPO):
             # tensors sampled during training
             self._tensors_names = ["states", "actions", "log_prob", "values", "returns", "advantages"]
 
-        self.finished_envs = torch.zeros(size=(self.num_envs, ), device=self.device, dtype=bool)
 
         # create temporary variables needed for storage and computation
         self._current_log_prob = None
@@ -226,7 +225,6 @@ class WandbLoggerPPO(PPO):
         self._track_rewards.clear()
         self._track_timesteps.clear()
         self.tracking_data.clear()
-        self.finished_envs[:] = False
         
         if self.log_wandb:
             for k, v in keep.items():
@@ -336,65 +334,11 @@ class WandbLoggerPPO(PPO):
                 actions=actions, 
                 rewards=rewards, 
                 next_states=next_states,
-                terminated=torch.logical_or(terminated, self.finished_envs[:,None]), 
+                terminated=terminated,
                 truncated=truncated, 
                 log_prob=self._current_log_prob, 
                 values=values
             )
-            """
-
-            
-            # storage transition in memory
-            # I am assuming we can't add more samlpes than the memory 
-            # capacity, this is fine because memory assumes every sample
-            # will be added, this can only reduce that amount
-            # check memory indexing to ensure safe placement
-            envs_remaining = self.num_envs - self.memory.env_index
-            
-            envs_samp_to_add = torch.sum(~self.finished_envs)
-            if envs_remaining < envs_samp_to_add:
-                # break it into two samples
-                self.add_sample_to_memory(
-                    states=states[~self.finished_envs,:][:envs_remaining,:], 
-                    actions=actions[~self.finished_envs,:][:envs_remaining,:], 
-                    rewards=rewards[~self.finished_envs,:][:envs_remaining,:], 
-                    next_states=next_states[~self.finished_envs,:][:envs_remaining,:],
-                    terminated=terminated[~self.finished_envs,:][:envs_remaining,:], 
-                    truncated=truncated[~self.finished_envs,:][:envs_remaining,:], 
-                    log_prob=self._current_log_prob[~self.finished_envs,:][:envs_remaining,:], 
-                    values=values[~self.finished_envs,:][:envs_remaining,:]
-                )
-                self.add_sample_to_memory(
-                    states=states[~self.finished_envs,:][envs_remaining:,:], 
-                    actions=actions[~self.finished_envs,:][envs_remaining:,:], 
-                    rewards=rewards[~self.finished_envs,:][envs_remaining:,:], 
-                    next_states=next_states[~self.finished_envs,:][envs_remaining:,:],
-                    terminated=terminated[~self.finished_envs,:][envs_remaining:,:], 
-                    truncated=truncated[~self.finished_envs,:][envs_remaining:,:], 
-                    log_prob=self._current_log_prob[~self.finished_envs,:][envs_remaining:,:], 
-                    values=values[~self.finished_envs,:][envs_remaining:,:]
-                )
-            else:
-                self.add_sample_to_memory(
-                    states=states[~self.finished_envs,:], 
-                    actions=actions[~self.finished_envs,:], 
-                    rewards=rewards[~self.finished_envs,:], 
-                    next_states=next_states[~self.finished_envs,:],
-                    terminated=terminated[~self.finished_envs,:], 
-                    truncated=truncated[~self.finished_envs,:], 
-                    log_prob=self._current_log_prob[~self.finished_envs,:], 
-                    values=values[~self.finished_envs,:]
-                )
-            """
-        # update successful envs after pushing samples so that state 
-        # entering success is added to memory, do it outside the if
-        # so that during eval, actions can be set to zero when we
-        # succeed (preventing any forces to be logged on accident)
-        for key in reward_dist.keys():
-            if 'success' in key:
-                self.finished_envs[reward_dist[key][:,0] > 1.0e-6] = True
-            elif 'failure' in key:
-                self.finished_envs[reward_dist[key][:,0] > 1.0e-6] = True
 
         #print('eval mode:', 'on' if eval_mode else 'off')
         if self.write_interval > 0 or eval_mode:

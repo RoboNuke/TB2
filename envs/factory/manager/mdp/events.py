@@ -263,7 +263,7 @@ def reset_master(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor
 ):
-    if env.start_state is None: #env_ids.size()[0] == env.num_envs:
+    if env_ids.size()[0] == env.num_envs:
         # total reset, call everythign
         set_assets_to_default_pose(env, env_ids)
         set_franka_to_default_pose(env, env_ids)
@@ -279,6 +279,7 @@ def reset_master(
 
         # store the current state
         env.start_state = env.scene.get_state()
+        print("full reset")
     else:
         # partial reset, reset indexes to fixed state
         # this shuffles the tensors
@@ -289,6 +290,8 @@ def reset_master(
                 #print("\t", key2)
                 for key3 in env.start_state[key][key2]:
                     #print("\t\t", key3)
+                    if key2 == 'robot' and key3 in ['root_pose', 'root_velocity']:
+                        continue        
                     env.start_state[key][key2][key3][:] = env.start_state[key][key2][key3][permutation]
 
         for art_name in env.scene.articulations.keys():
@@ -301,6 +304,7 @@ def reset_master(
             env.scene[art_name].write_joint_state_to_sim(jnt_pos[env_ids,:], jnt_vel[env_ids,:], env_ids=env_ids)
             #env.scene[art_name].data.default_root_state[env_ids,:7] = env.start_state['articulation'][art_name]['root_pose'][env_ids,:]
             #env.scene[art_name].data.default_root_state[:,7:] *= 0.0 
+
 
         env.scene["held_asset"].reset()
         #set_assets_to_default_pose(env, torch.tensor(range(env.num_envs)))
