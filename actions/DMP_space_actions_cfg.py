@@ -1,8 +1,8 @@
 from dataclasses import MISSING
 
-from omni.isaac.lab.controllers import DifferentialIKControllerCfg #, OperationalSpaceControllerCfg
-from omni.isaac.lab.managers.action_manager import ActionTerm, ActionTermCfg
-from omni.isaac.lab.utils import configclass
+from isaaclab.controllers import DifferentialIKControllerCfg #, OperationalSpaceControllerCfg
+from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
+from isaaclab.utils import configclass
 
 #from . import binary_joint_actions, joint_actions, joint_actions_to_limits, non_holonomic_actions, task_space_actions
 import actions.DMP_space_actions as dmp_actions

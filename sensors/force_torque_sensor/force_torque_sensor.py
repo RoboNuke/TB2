@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from omni.isaac.lab.utils import configclass
-from omni.isaac.lab.sensors import SensorBase
-from omni.isaac.lab.sensors import SensorBaseCfg
-from omni.isaac.lab.sensors.contact_sensor import ContactSensorCfg
-from omni.isaac.core.articulations import ArticulationView
+from isaaclab.utils import configclass
+from isaaclab.sensors import SensorBase
+from isaaclab.sensors import SensorBaseCfg
+from isaaclab.sensors.contact_sensor import ContactSensorCfg
+from isaacsim.core.articulations import ArticulationView
 
 #if TYPE_CHECKING:
 #    from sensors.force_torque_sensor.force_torque_cfg import ForceTorqueSensorCfg

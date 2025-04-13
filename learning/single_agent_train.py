@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from omni.isaac.lab.app import AppLauncher
+from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Train an RL agent with skrl.")
@@ -93,22 +93,22 @@ from agents.agent_list import AgentList
 from skrl.agents.torch.sac import SAC, SAC_DEFAULT_CONFIG
 from skrl.agents.torch.ppo import PPO, PPO_DEFAULT_CONFIG
 
-from omni.isaac.lab.envs import (
+from isaaclab.envs import (
     DirectMARLEnv,
     DirectMARLEnvCfg,
     DirectRLEnvCfg,
     ManagerBasedRLEnvCfg,
     multi_agent_to_single_agent,
 )
-from omni.isaac.lab.utils.dict import print_dict
-from omni.isaac.lab.utils.io import dump_pickle, dump_yaml
+from isaaclab.utils.dict import print_dict
+from isaaclab.utils.io import dump_pickle, dump_yaml
 
-import omni.isaac.lab_tasks  # noqa: F401
+import isaaclab_tasks  # noqa: F401
 import envs.FPiH.config.franka
 import envs.factory.direct
 import envs.factory.manager
-from omni.isaac.lab_tasks.utils.hydra import hydra_task_config
-from omni.isaac.lab_tasks.utils.wrappers.skrl import SkrlVecEnvWrapper
+from isaaclab_tasks.utils.hydra import hydra_task_config
+from isaaclab_tasks.utils.wrappers.skrl import SkrlVecEnvWrapper
 from agents.wandb_logger_ppo_agent import WandbLoggerPPO
 from agents.wandb_logger_sac_agent import WandbLoggerSAC
 

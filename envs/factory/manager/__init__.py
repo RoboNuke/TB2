@@ -8,7 +8,7 @@ from .config.ActDMP_factory_env_cfg import FactoryManagerEnvActDMPCfg
 
 gym.register(
     id="TB2-Factor-PiH-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": FactoryManagerEnvCfg,
@@ -20,7 +20,7 @@ gym.register(
 
 gym.register(
     id="TB2-Factor-PiH-ObsHist-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": FactoryManagerEnvObsHistCfg,
@@ -32,7 +32,7 @@ gym.register(
 
 gym.register(
     id="TB2-Factor-PiH-ActDMP-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": FactoryManagerEnvActDMPCfg,

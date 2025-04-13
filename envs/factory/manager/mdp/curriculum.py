@@ -3,10 +3,10 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from omni.isaac.lab.envs import mdp
+from isaaclab.envs import mdp
 
 if TYPE_CHECKING:
-    from omni.isaac.lab.envs import ManagerBasedRLEnv
+    from isaaclab.envs import ManagerBasedRLEnv
 
 def update_z_low(
     env: ManagerBasedEnv,

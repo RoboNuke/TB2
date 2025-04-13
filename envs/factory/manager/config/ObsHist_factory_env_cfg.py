@@ -1,14 +1,14 @@
 
-from omni.isaac.lab.utils import configclass
+from isaaclab.utils import configclass
 from envs.factory.manager import FactoryManagerEnvCfg
 from sensors.dense_pose_sensor.dense_pose_sensor import DummySensorCfg, DensePoseSensorCfg
-from omni.isaac.lab.sensors import ImuCfg
+from isaaclab.sensors import ImuCfg
 
 
-from omni.isaac.lab.envs import mdp
-from omni.isaac.lab.managers import ObservationGroupCfg as ObsGroup
-from omni.isaac.lab.managers import ObservationTermCfg as ObsTerm
-from omni.isaac.lab.managers import EventTermCfg as EventTerm
+from isaaclab.envs import mdp
+from isaaclab.managers import ObservationGroupCfg as ObsGroup
+from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import EventTermCfg as EventTerm
 import envs.factory.manager.mdp.observations as fac_mdp_obs
 import envs.factory.manager.mdp.events as fac_mdp_events
 

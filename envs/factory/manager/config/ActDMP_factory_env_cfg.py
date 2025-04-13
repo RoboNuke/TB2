@@ -1,9 +1,9 @@
-from omni.isaac.lab.utils import configclass
+from isaaclab.utils import configclass
 from envs.factory.manager import FactoryManagerEnvCfg
 
-from omni.isaac.lab.envs import mdp
-from omni.isaac.lab_assets.franka import FRANKA_PANDA_HIGH_PD_CFG  # isort: skip
-from omni.isaac.lab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
+from isaaclab.envs import mdp
+from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG  # isort: skip
+from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 
 from actions.DMP_space_actions_cfg import DMPDiffIKActionCfg, DMPCfg
 

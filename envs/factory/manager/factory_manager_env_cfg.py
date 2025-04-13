@@ -1,9 +1,9 @@
 from dataclasses import MISSING
 import torch
-import omni.isaac.core.utils.prims as prim_utils
-
-import omni.isaac.lab.sim as sim_utils
-from omni.isaac.lab.assets import (
+import isaacsim
+import isaacsim.core.utils.prims as prim_utils
+import isaaclab.sim as sim_utils
+from isaaclab.assets import (
     Articulation,
     ArticulationCfg,
     AssetBaseCfg,
@@ -13,29 +13,29 @@ from omni.isaac.lab.assets import (
     RigidObjectCollectionCfg,
     DeformableObjectCfg, 
 )
-from omni.isaac.lab.envs import ManagerBasedRLEnvCfg
-from omni.isaac.lab.managers import CurriculumTermCfg as CurrTerm
-from omni.isaac.lab.managers import EventTermCfg as EventTerm
-from omni.isaac.lab.managers import ObservationGroupCfg as ObsGroup
-from omni.isaac.lab.managers import ObservationTermCfg as ObsTerm
-from omni.isaac.lab.managers import RewardTermCfg as RewTerm
-from omni.isaac.lab.managers import SceneEntityCfg
-from omni.isaac.lab.managers import TerminationTermCfg as DoneTerm
-from omni.isaac.lab.scene import InteractiveSceneCfg
-from omni.isaac.lab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg
-from omni.isaac.lab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg, UsdFileCfg
-from omni.isaac.lab.utils import configclass
-from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
-from omni.isaac.lab.envs import mdp
-from omni.isaac.lab.sensors import ContactSensorCfg
-from omni.isaac.core.articulations import ArticulationView
-from omni.isaac.lab.sensors import TiledCameraCfg, ImuCfg
+from isaaclab.envs import ManagerBasedRLEnvCfg
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
+from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.managers import ObservationGroupCfg as ObsGroup
+from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import RewardTermCfg as RewTerm
+from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import TerminationTermCfg as DoneTerm
+from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg, UsdFileCfg
+from isaaclab.utils import configclass
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
+from isaaclab.envs import mdp
+from isaaclab.sensors import ContactSensorCfg
+#from isaacsim.core.articulations import ArticulationView
+from isaaclab.sensors import TiledCameraCfg, ImuCfg
 
 
-from omni.isaac.lab.actuators.actuator_cfg import ImplicitActuatorCfg
-from omni.isaac.lab.sim import PhysxCfg, SimulationCfg
-from omni.isaac.lab.sim.spawners.materials.physics_materials_cfg import RigidBodyMaterialCfg
-from omni.isaac.lab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab.actuators.actuator_cfg import ImplicitActuatorCfg
+from isaaclab.sim import PhysxCfg, SimulationCfg
+from isaaclab.sim.spawners.materials.physics_materials_cfg import RigidBodyMaterialCfg
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 ASSET_DIR = f"{ISAACLAB_NUCLEUS_DIR}/Factory"
 
 
@@ -46,13 +46,13 @@ import envs.factory.manager.mdp.curriculum as fac_mdp_cric
 import envs.factory.manager.mdp.termination as fac_mdp_term
 
 from envs.factory.manager.factory_manager_task_cfg import *
-from omni.isaac.lab_assets.franka import FRANKA_PANDA_HIGH_PD_CFG  # isort: skip
-from omni.isaac.lab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
-from omni.isaac.lab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
-from omni.isaac.lab.utils import configclass
+from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG  # isort: skip
+from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
+from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
+from isaaclab.utils import configclass
 
 from sensors.dense_pose_sensor.dense_pose_sensor import DummySensorCfg, DensePoseSensorCfg
-from sensors.force_torque_sensor.force_torque_cfg import ForceTorqueSensorCfg
+#from sensors.force_torque_sensor.force_torque_cfg import ForceTorqueSensorCfg
 ##
 # Scene definition
 ##
@@ -203,12 +203,12 @@ class FactoryManagerSceneCfg(InteractiveSceneCfg):
         offset = ImuCfg.OffsetCfg(pos=[0.0, 0.0, 0.107])
     )
 
-    force_torque_sensor: ForceTorqueSensorCfg = ForceTorqueSensorCfg(
-        prim_path="/World/envs/env_.*/Robot",
-        history_length=1,
-        debug_vis = False,
-        update_period = 0,
-    )
+    #force_torque_sensor: ForceTorqueSensorCfg = ForceTorqueSensorCfg(
+    #    prim_path="/World/envs/env_.*/Robot",
+    #    history_length=1,
+    #    debug_vis = False,
+    #    update_period = 0,
+    #)
 
 
 ##
@@ -281,10 +281,10 @@ class ObservationsCfg:
 
         prev_action = ObsTerm(func=mdp.last_action)
         
-        force_torque_reading = ObsTerm(
-            func=fac_mdp_obs.force_torque_sensor,
-            params = {'scaled':True}
-        )
+        #force_torque_reading = ObsTerm(
+        #    func=fac_mdp_obs.force_torque_sensor,
+        #    params = {'scaled':True}
+        #)
 
 
         """ What factory Uses by default        
@@ -304,9 +304,9 @@ class ObservationsCfg:
     class InfoCfg(ObsGroup):
         """Observations for information tracking"""
 
-        dmg_force = ObsTerm(
-            func=fac_mdp_obs.force_torque_sensor
-        )
+        #dmg_force = ObsTerm(
+        #    func=fac_mdp_obs.force_torque_sensor
+        #)
 
         joint_vel = ObsTerm(func=mdp.joint_vel_rel)
 
@@ -440,13 +440,13 @@ class RewardsCfg:
         weight=1.0/3.0
     )
     
-    broke_peg_failure = RewTerm(
-        func=fac_mdp_rew.force_check,
-        params={
-            "threshold" : 5.0
-        },
-        weight=-2.0 / 3.0
-    )
+    #broke_peg_failure = RewTerm(
+    #    func=fac_mdp_rew.force_check,
+    #    params={
+    #        "threshold" : 5.0
+    #    },
+    #    weight=-2.0 / 3.0
+    #)
     
     """
     success = RewTerm(
@@ -468,7 +468,7 @@ class RewardsCfg:
         weight=0.0
     )
 
-from omni.isaac.lab.envs import ManagerBasedRLEnv
+from isaaclab.envs import ManagerBasedRLEnv
 def random_stop(env: ManagerBasedRLEnv) -> torch.Tensor:
     rand = torch.rand((env.num_envs ), dtype=torch.float32, device=env.device)
     print(rand < 0.05)

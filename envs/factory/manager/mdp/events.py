@@ -6,16 +6,16 @@ from typing import TYPE_CHECKING, Literal
 import carb
 import omni.physics.tensors.impl.api as physx
 
-import omni.isaac.lab.sim as sim_utils
-import omni.isaac.lab.utils.math as math_utils
-from omni.isaac.lab.actuators import ImplicitActuator
-from omni.isaac.lab.assets import Articulation, DeformableObject, RigidObject, RigidObjectCollection
-from omni.isaac.lab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
-from omni.isaac.lab.terrains import TerrainImporter
-from omni.isaac.lab.utils.math import quat_apply, quat_rotate, quat_rotate_inverse
+import isaaclab.sim as sim_utils
+import isaaclab.utils.math as math_utils
+from isaaclab.actuators import ImplicitActuator
+from isaaclab.assets import Articulation, DeformableObject, RigidObject, RigidObjectCollection
+from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
+from isaaclab.terrains import TerrainImporter
+from isaaclab.utils.math import quat_apply, quat_rotate, quat_rotate_inverse
 
 if TYPE_CHECKING:
-    from omni.isaac.lab.envs import ManagerBasedEnv
+    from isaaclab.envs import ManagerBasedEnv
 
 import omni.usd
 import omni.kit.commands
@@ -23,19 +23,19 @@ from pxr import Usd, UsdGeom, Gf, Sdf
 
 
 from envs.factory.manager import factory_control as fc
-from omni.isaac.core.articulations import ArticulationView
+#from omni.isaac.core.articulations import ArticulationView
 
-from omni.isaac.lab.utils.math import subtract_frame_transforms
+from isaaclab.utils.math import subtract_frame_transforms
 
-import omni.isaac.core.utils.extensions as extensions_utils
+import isaacsim.core.utils.extensions as extensions_utils
 extensions_utils.enable_extension("omni.isaac.robot_assembler")
-from omni.isaac.robot_assembler import RobotAssembler,AssembledRobot
+#from omni.isaac.robot_assembler import RobotAssembler,AssembledRobot
 import numpy as np
 
 from envs.factory.manager.factory_manager_task_cfg import PegInsert, FactoryTask
 import envs.factory.direct.factory_control as fc
-import omni.isaac.core.utils.torch as torch_utils
-from omni.isaac.lab.utils.math import axis_angle_from_quat
+import isaacsim.core.utils.torch as torch_utils
+from isaaclab.utils.math import axis_angle_from_quat
 
 def set_body_inertias(
         env: ManagerBasedEnv,
@@ -89,7 +89,7 @@ def init_tensors(
         env_ids: torch.Tensor,
         task_cfg: FactoryTask = PegInsert(), 
 ):
-    
+    env.start_state = None
     """Initialize tensors once."""
     env.identity_quat = (
         torch.tensor([1.0, 0.0, 0.0, 0.0], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
@@ -263,7 +263,7 @@ def reset_master(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor
 ):
-    if env_ids.size()[0] == env.num_envs:
+    if env.start_state is None: #env_ids.size()[0] == env.num_envs:
         # total reset, call everythign
         set_assets_to_default_pose(env, env_ids)
         set_franka_to_default_pose(env, env_ids)
@@ -276,35 +276,31 @@ def reset_master(
         #},
         reset_franka_above_fixed(env, env_ids)
         reset_held_asset(env, env_ids)
+
         # store the current state
         env.start_state = env.scene.get_state()
-        print("entering for")
-        for art_name in env.scene.articulations.keys():
-            print(art_name)
-            print(env.start_state['articulation'].keys())
-            env.scene[art_name].data.default_root_state[:,:7] = env.start_state['articulation'][art_name]['root_pose']
-            env.scene[art_name].data.default_root_state[:,7:] *= 0.0 
-
-        print("full reset")
     else:
         # partial reset, reset indexes to fixed state
         # this shuffles the tensors
-        #permutation = torch.randperm(env.num_envs)
-        #for key in env.start_state:
-        #    for key2 in env.start_state[key]:
-        #        for key3 in env.start_state[key][key2]:
-        #            env.start_state[key][key2][key3][:] = env.start_state[key][key2][key3][permutation]
-        #env.scene.reset_to(env.start_state) #, env_ids)
-        #for art_name in env.scene.articulations.keys():
-        #    env.scene.articulations[art_name].write_root_pose_to_sim(
-        #        env.start_state['articulation'][art_name]['root_pose'], 
-        #        env_ids
-        #    )
+        permutation = torch.randperm(env.num_envs)
+        for key in env.start_state:
+            #print(key)
+            for key2 in env.start_state[key]:
+                #print("\t", key2)
+                for key3 in env.start_state[key][key2]:
+                    #print("\t\t", key3)
+                    env.start_state[key][key2][key3][:] = env.start_state[key][key2][key3][permutation]
+
         for art_name in env.scene.articulations.keys():
-            env.scene[art_name].data.default_root_state = env.scene[art_name].data.root_state_w 
-            env.scene[art_name].data.default_root_state[:,:3] -= env.scene.env_origins
-            env.scene[art_name].data.default_root_state[env_ids,:7] = env.start_state['articulation'][art_name]['root_pose'][env_ids,:]
-            env.scene[art_name].data.default_root_state[:,7:] *= 0.0 
+            pose = env.start_state['articulation'][art_name]['root_pose']
+            vel = env.start_state['articulation'][art_name]['root_velocity']
+            jnt_pos = env.start_state['articulation'][art_name]['joint_position']
+            jnt_vel = env.start_state['articulation'][art_name]['joint_velocity']
+            env.scene[art_name].write_root_pose_to_sim(pose[env_ids,:], env_ids=env_ids)
+            env.scene[art_name].write_root_velocity_to_sim(vel[env_ids,:], env_ids=env_ids)
+            env.scene[art_name].write_joint_state_to_sim(jnt_pos[env_ids,:], jnt_vel[env_ids,:], env_ids=env_ids)
+            #env.scene[art_name].data.default_root_state[env_ids,:7] = env.start_state['articulation'][art_name]['root_pose'][env_ids,:]
+            #env.scene[art_name].data.default_root_state[:,7:] *= 0.0 
 
         env.scene["held_asset"].reset()
         #set_assets_to_default_pose(env, torch.tensor(range(env.num_envs)))

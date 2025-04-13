@@ -4,7 +4,7 @@ from __future__ import annotations
 import torch
 from dataclasses import dataclass
 
-from omni.isaac.lab.sensors.contact_sensor import ContactSensorData
+from isaaclab.sensors.contact_sensor import ContactSensorData
 
 
 @dataclass

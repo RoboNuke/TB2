@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from omni.isaac.lab.utils import configclass
-from omni.isaac.lab.sensors import SensorBase
-from omni.isaac.lab.sensors import SensorBaseCfg
-from omni.isaac.lab.sensors.imu import Imu, ImuData, ImuCfg
+from isaaclab.utils import configclass
+from isaaclab.sensors import SensorBase
+from isaaclab.sensors import SensorBaseCfg
+from isaaclab.sensors.imu import Imu, ImuData, ImuCfg
 
 class DummySensor(Imu):
     old_dt = 0.0

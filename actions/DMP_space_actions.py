@@ -7,14 +7,14 @@ from collections.abc import Sequence
 import omni.log
 #from pxr import UsdPhysics
 
-import omni.isaac.lab.utils.math as math_utils
-import omni.isaac.lab.utils.string as string_utils
-from omni.isaac.lab.assets.articulation import Articulation
-from omni.isaac.lab.controllers.differential_ik import DifferentialIKController
-#from omni.isaac.lab.controllers.operational_space import OperationalSpaceController
-from omni.isaac.lab.managers.action_manager import ActionTerm
-#from omni.isaac.lab.sensors import ContactSensor, ContactSensorCfg, FrameTransformer, FrameTransformerCfg
-#from omni.isaac.lab.sim.utils import find_matching_prims
+import isaaclab.utils.math as math_utils
+import isaaclab.utils.string as string_utils
+from isaaclab.assets.articulation import Articulation
+from isaaclab.controllers.differential_ik import DifferentialIKController
+#from isaaclab.controllers.operational_space import OperationalSpaceController
+from isaaclab.managers.action_manager import ActionTerm
+#from isaaclab.sensors import ContactSensor, ContactSensorCfg, FrameTransformer, FrameTransformerCfg
+#from isaaclab.sim.utils import find_matching_prims
 import actions.DMP_space_actions_cfg as dmp_actions#import DMPDiffIKActionCfg
 from wrappers.DMP.discrete_dmp import DiscreteDMP
 from wrappers.DMP.cs import CS
