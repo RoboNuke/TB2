@@ -12,7 +12,7 @@ from isaaclab.sensors import SensorBase
 from isaaclab.sensors import SensorBaseCfg
 from isaaclab.sensors.contact_sensor import ContactSensorCfg
 #from isaacsim.core.articulations import ArticulationView
-from isaacsim.core import RobotView
+from isaacsim.core.prims import Articulation
 #if TYPE_CHECKING:
 #    from sensors.force_torque_sensor.force_torque_cfg import ForceTorqueSensorCfg
 from sensors.force_torque_sensor.force_torque_data import ForceTorqueSensorData
@@ -81,7 +81,7 @@ class ForceTorqueSensor(SensorBase):
         super()._initialize_impl()
 
         #self._robot_av = ArticulationView(prim_paths_expr=self.cfg.prim_path) #, enable_dof_force_sensors=True)
-        self._robot_av = RobotView(prim_paths_expr=self.cfg.prim_path)
+        self._robot_av = Articulation(prim_paths_expr=self.cfg.prim_path)
         self._robot_av.initialize()
         # Create internal buffers
         self._initialize_buffers_impl()

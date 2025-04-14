@@ -95,7 +95,7 @@ def init_tensors(
         torch.tensor([1.0, 0.0, 0.0, 0.0], device=env.device).unsqueeze(0).repeat(env.num_envs, 1)
     )
     fixed_asset: Articulation = env.scene["fixed_asset"]
-
+    #env.bool_holder = torch.zeros((env.num_envs,), dtype=torch.bool, device=env.deivce)
     env.fixed_pos = fixed_asset.data.root_link_pos_w - env.scene.env_origins
     env.fixed_quat = fixed_asset.data.root_link_quat_w
 
@@ -263,6 +263,8 @@ def reset_master(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor
 ):
+    if env_ids is None:
+        env_ids = torch.tensor(range(env.num_envs), device=env.device)
     if env_ids.size()[0] == env.num_envs:
         # total reset, call everythign
         set_assets_to_default_pose(env, env_ids)

@@ -185,8 +185,12 @@ def main(
         env_cfg.use_curriculum = False
 
     if agent_cfg["break_force"] < 0:
-        del env_cfg.rewards.broke_peg_failure
-        del env_cfg.terminations.broke_peg
+        print("Removing peg broke conditions")
+        print(env_cfg.rewards)
+        del env_cfg.rewards.peg_broke
+        del env_cfg.terminations.peg_broke
+        #env_cfg.rewards.peg_broke.weight = 0.0
+        #env_cfg.terminations.peg_broke.params['threshold'] = 1.0e6
 
     #if agent_cfg['seed'] >= 0:
     #    #print("setting seed")
@@ -270,10 +274,12 @@ def main(
         else:
             if agent_idx == 0:
                 print("\n\nNo Videos will be recorded\n\n")
-                delattr(env_cfg.observations.info, "img")
+                #delattr(env_cfg.observations.info, "img")
+                del env_cfg.observations.info.img
                 eval_vid = False
                 train_vid = False
-                delattr(env_cfg.scene,"tiled_camera")
+                #delattr(env_cfg.scene,"tiled_camera")
+                del env_cfg.scene.tiled_camera
         
     # create env
     env = gym.make(

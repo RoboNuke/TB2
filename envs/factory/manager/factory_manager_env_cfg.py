@@ -52,7 +52,7 @@ from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsA
 from isaaclab.utils import configclass
 
 from sensors.dense_pose_sensor.dense_pose_sensor import DummySensorCfg, DensePoseSensorCfg
-#from sensors.force_torque_sensor.force_torque_cfg import ForceTorqueSensorCfg
+from sensors.force_torque_sensor.force_torque_cfg import ForceTorqueSensorCfg
 ##
 # Scene definition
 ##
@@ -391,6 +391,15 @@ class EventCfg:
         mode="reset"
     )
     """
+
+    # this resets every max time steps so we don't overfit to 
+    # a few starting configurations
+    #full_reset = EventTerm(
+    #    func=fac_mdp_events.reset_master,
+    # #   mode="interval",
+    #    is_global_time=True,
+    #    interval_range_s=[5.5, 5.0]
+    #)
     
 @configclass
 class RewardsCfg:
@@ -492,10 +501,16 @@ class TerminationsCfg:
         time_out=True
     )
 
-    broke_peg = DoneTerm(
+    global_time_out = DoneTerm(
+        func=fac_mdp_term.global_timeout,
+        time_out=True
+    )
+
+    peg_broke = DoneTerm(
         func=fac_mdp_term.force_check,
         params= {
-            "threshold":5.0
+            "threshold" : 5.0,
+            "check_rot" : False
         },
         time_out=False
     )
@@ -589,3 +604,4 @@ class FactoryManagerEnvCfg(ManagerBasedRLEnvCfg):
             replicate_physics=self.replicate_physics
         )
         
+        #self.events.full_reset.params['env_ids'] = torch.tensor(range(self.num_envs))

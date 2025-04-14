@@ -376,6 +376,7 @@ class WandbLoggerPPO(PPO):
                             
             # this is a less efficent way to get the termination conditions, but isaac lab api has some issues
             # with not updating those buffers correctly so this is more accurate
+            ended = torch.logical_or(terminated, truncated)
             for big_key in infos.keys():
                 #print("Big Key:", big_key)
                 for k, v in infos[big_key].items():
@@ -385,26 +386,23 @@ class WandbLoggerPPO(PPO):
                             
                         if 'success' in k:
                             rew = reward_dist[k.split("/")[-1]]
-                            #print("succ rew:", rew.T)
-                            if torch.any(rew > 1.0e-8):
-                                print("Transition:", rew.T)
-                            self.count_stats['success'][terminated] += 1.0
+                            self.count_stats['success'][torch.logical_and(ended, rew > 1e-6)] += 1.0
                         elif 'engaged' in k:
                             rew = reward_dist[k.split("/")[-1]]
                             #print("engaged rew:", rew.T)
-                            self.count_stats['engaged'][rew>1.0e-6] = 1.0
+                            self.count_stats['engaged'][torch.logical_and(ended, rew > 1e-6)] += 1.0
 
                         if 'Reward' in k:
                             rew = reward_dist[k.split("/")[-1]]
                             if eval_mode:
                                 self.m4_returns[k][alive_mask] = rew[alive_mask]#(rew * alive_mask)
                             else:
-                                self.m4_returns[k] = rew
+                                self.m4_returns[k][ended] += rew[ended]
                         else: # is this required?
                             if eval_mode:
                                 self.m4_returns[k] += (rew * alive_mask)
                             else:
-                                self.m4_returns[k] += rew
+                                self.m4_returns[k][ended] += rew[ended]
                     elif k.startswith("Curriculum"): # just directly publish curriculum data
                         #print("Got key:", k, " with ", eval_mode)
                         #if eval_mode:
@@ -412,7 +410,7 @@ class WandbLoggerPPO(PPO):
                         self.count_stats['Minimum Z Height'][0] = v
                     else: # it is a count stats key 
                         key = k.split("/")[-1]
-                        if 'success' in k or 'engaged' in k:
+                        if 'engaged' in k:
                             pass
                         elif eval_mode:
                             self.count_stats[k] += torch.sum( 
