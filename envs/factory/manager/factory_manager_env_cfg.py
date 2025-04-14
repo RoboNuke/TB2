@@ -460,7 +460,7 @@ class RewardsCfg:
     
     success = RewTerm(
         func = mdp.is_terminated_term,
-        weight=1/3.0,
+        weight= 1/3.0,
         params={
             "term_keys":["success"]
         }
@@ -496,12 +496,12 @@ def random_stop(env: ManagerBasedRLEnv) -> torch.Tensor:
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
-    time_out = DoneTerm(
-        func=mdp.time_out, 
-        time_out=True
-    )
+    #time_out = DoneTerm(
+    #    func=mdp.time_out, 
+    #    time_out=True
+    #)
 
-    global_time_out = DoneTerm(
+    time_out = DoneTerm(
         func=fac_mdp_term.global_timeout,
         time_out=True
     )

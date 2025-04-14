@@ -251,7 +251,6 @@ class ExtSequentialTrainer(Trainer):
                     
                     mask_update = 1 - torch.logical_or(terminated, truncated).float()
                     
-                    self.env.unwrapped.common_step_counter -= 1
                     
                     # get specific reward and termination data
                     for rew_type in rew_types:
@@ -292,5 +291,5 @@ class ExtSequentialTrainer(Trainer):
                                 states, infos = self.env.reset()
                         else:
                             states = next_states
-                            
+        self.env.unwrapped.common_step_counter -= ep_length             
         self.abs_agent.write_tracking_data(self.training_timestep, self.timesteps, eval=True)

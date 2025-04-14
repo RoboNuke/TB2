@@ -158,20 +158,20 @@ class WandbLoggerPPO(PPO):
         :type timesteps: int
         """
         if self.log_wandb:
-            prefix = "Eval" if eval else "Training"
+            prefix = "Eval " if eval else "Training "
 
             # handle cumulative rewards
             if len(self._track_rewards):
                 track_rewards = np.array(self._track_rewards)
                 track_timesteps = np.array(self._track_timesteps)
                 
-                self.tracking_data[prefix + " Reward / Return (max)"].append(np.max(track_rewards))
-                self.tracking_data[prefix + " Reward / Return (min)"].append(np.min(track_rewards))
-                self.tracking_data[prefix + " Reward / Return (mean)"].append(np.mean(track_rewards))
+                self.tracking_data[prefix + "Reward / Return (max)"].append(np.max(track_rewards))
+                self.tracking_data[prefix + "Reward / Return (min)"].append(np.min(track_rewards))
+                self.tracking_data[prefix + "Reward / Return (mean)"].append(np.mean(track_rewards))
 
-                self.tracking_data[prefix + " Episode / Total timesteps (max)"].append(np.max(track_timesteps))
-                self.tracking_data[prefix + " Episode / Total timesteps (min)"].append(np.min(track_timesteps))
-                self.tracking_data[prefix + " Episode / Total timesteps (mean)"].append(np.mean(track_timesteps))
+                self.tracking_data[prefix + "Episode / Total timesteps (max)"].append(np.max(track_timesteps))
+                self.tracking_data[prefix + "Episode / Total timesteps (min)"].append(np.min(track_timesteps))
+                self.tracking_data[prefix + "Episode / Total timesteps (mean)"].append(np.mean(track_timesteps))
 
             keep = {}
             for k, v in self.tracking_data.items():
@@ -191,37 +191,23 @@ class WandbLoggerPPO(PPO):
                     self.data_manager.add_scalar({k:np.max(v)}, timestep * self.num_envs)
                 else:
                     self.data_manager.add_scalar({k:np.mean(v)}, timestep * self.num_envs)
-
-                if k in self.m4_returns:
-                    self.m4_returns[k] *= 0
-                
             
-            # handle counting stats
-
             for k,v in self.count_stats.items():
-                my_k = prefix + k
-                my_k = my_k.replace('Episode_Termination/', ' Termination / ')
-                if 'success' in k:
-                    my_k = prefix + ' Termination / success'
-                    self.data_manager.add_scalar({my_k:torch.sum(v).item()}, timestep * self.num_envs)
-                elif 'engaged' in k:
-                    my_k = prefix + ' Termination / engaged'
-                    self.data_manager.add_scalar({my_k:torch.sum(v).item()}, timestep * self.num_envs)
-                elif 'time_out' in k:
-                    #self.track_data(my_k, v.item())
-                    timedout = v.item() - torch.sum(self.count_stats['success']).item()
-                    self.data_manager.add_scalar({my_k:timedout}, timestep * self.num_envs)
-                elif 'Curriculum' in k or 'Minimum Z Height' in k:
-                    #if eval:
-                    #print("Pushed curr to data manager")
-                    my_k = "Curriculum / " + k
-                    #my_k = my_k.replace("Curriculum/", "Curriculum / ")
-                    self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
-                else:
-                    #self.track_data(my_k, v.item())
-                    self.data_manager.add_scalar({my_k:v.item()}, timestep * self.num_envs)
-                self.count_stats[k] *= 0
-
+                print(k)
+                my_k = prefix + 'Termination / ' + k
+                #my_k = my_k.replace('Episode_Termination/', 'Termination / ')
+                print(my_k,v)
+                self.data_manager.add_scalar({my_k:v}, timestep * self.num_envs)
+                self.count_stats[k] = 0
+            
+            for k,v in self.reward_stats.items():
+                print(k)
+                my_k = prefix + 'Reward / ' + k
+                my_k = my_k.replace('Episode_Reward/', 'Reward / ')
+                print(my_k, np.mean(np.array(v)))
+                self.data_manager.add_scalar({my_k:np.mean(np.array(v))}, timestep * self.num_envs)
+                self.reward_stats[k].clear()
+            #self.data_manager.add_scalar({prefix + 'Termination / Engaged':torch.sum(self.engaged_once).item()}, timestep * self.num_envs)
         # reset data containers for next iteration
         self._track_rewards.clear()
         self._track_timesteps.clear()
@@ -341,6 +327,8 @@ class WandbLoggerPPO(PPO):
                 values=values
             )
 
+
+
         #print('eval mode:', 'on' if eval_mode else 'off')
         if self.write_interval > 0 or eval_mode:
             # compute the cumulative sum of the rewards and timesteps
@@ -348,137 +336,78 @@ class WandbLoggerPPO(PPO):
                 self._cumulative_rewards = torch.zeros_like(rewards, dtype=torch.float32)
                 self._cumulative_timesteps = torch.zeros_like(rewards, dtype=torch.int32)
                 # create bins for the termination types
-                self.m4_returns = {}
                 self.count_stats = {}
-                self.old_rewards = {}
-                #print('Termination Keys')
-                for info_key in infos.keys():
-                    if not (type(infos[info_key]) == dict):
-                        continue
-                    for key in infos[info_key].keys():
-                        #print(f"\t{key}")
-                        if key.startswith("Episode_Termination"):
-                            #print(f'\t{key}')
-                            self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
-                        elif key.startswith("Episode_Reward"):
-                            self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
-                        elif key.startswith("Curriculum"):
-                            self.count_stats[key] = torch.zeros(size=(1, ), device=states.device)
-                        else:
-                            self.m4_returns[key] = torch.zeros(size=(states.shape[0],1), device=states.device)
-                #print("m4 keys:", self.m4_returns.keys())
-                # add count stats for success and engagement
-                self.count_stats['success'] = torch.zeros(size=(states.shape[0],1), device=states.device)
-                self.count_stats['Minimum Z Height'] = torch.zeros(size=(1, ), device=states.device)
-                #print("init:", self.count_stats['success'])
-                #assert 1 == 0
-                self.count_stats['engaged'] = torch.zeros(size=(states.shape[0],1), device=states.device)
-                            
-            # this is a less efficent way to get the termination conditions, but isaac lab api has some issues
-            # with not updating those buffers correctly so this is more accurate
-            ended = torch.logical_or(terminated, truncated)
-            for big_key in infos.keys():
-                #print("Big Key:", big_key)
-                for k, v in infos[big_key].items():
-                    #print("Manager:", env.unwrapped.reward_manager._episode_sums["keypoint_baseline"])
-                    #print(f'\t{k}:{v}')
-                    if k in self.m4_returns.keys():
-                            
-                        if 'success' in k:
-                            rew = reward_dist[k.split("/")[-1]]
-                            self.count_stats['success'][torch.logical_and(ended, rew > 1e-6)] += 1.0
-                        elif 'engaged' in k:
-                            rew = reward_dist[k.split("/")[-1]]
-                            #print("engaged rew:", rew.T)
-                            self.count_stats['engaged'][torch.logical_and(ended, rew > 1e-6)] += 1.0
-
-                        if 'Reward' in k:
-                            rew = reward_dist[k.split("/")[-1]]
-                            if eval_mode:
-                                self.m4_returns[k][alive_mask] = rew[alive_mask]#(rew * alive_mask)
-                            else:
-                                self.m4_returns[k][ended] += rew[ended]
-                        else: # is this required?
-                            if eval_mode:
-                                self.m4_returns[k] += (rew * alive_mask)
-                            else:
-                                self.m4_returns[k][ended] += rew[ended]
-                    elif k.startswith("Curriculum"): # just directly publish curriculum data
-                        #print("Got key:", k, " with ", eval_mode)
-                        #if eval_mode:
-                            #print("Added curr to count stats")
-                        self.count_stats['Minimum Z Height'][0] = v
-                    else: # it is a count stats key 
-                        key = k.split("/")[-1]
-                        if 'engaged' in k:
-                            pass
-                        elif eval_mode:
-                            self.count_stats[k] += torch.sum( 
-                                torch.logical_and(
-                                    alive_mask.T, 
-                                    term_dist[key]
-                                )
-                            )
-                        else:
-                            self.count_stats[k] += torch.sum(term_dist[key])
-                            
+                self.reward_stats = {}
+                for term in term_dist:
+                    self.count_stats[term] = 0
+                for rew in reward_dist:
+                    self.reward_stats[rew] = collections.deque(maxlen=1000)
+                self.last_rew = reward_dist
+                #self.engaged_once = torch.zeros((self.num_envs, ), dtype=torch.bool, device = self.device)
+                self.count_stats['engaged'] = 0
             # handle reward 
-            prefix = "Training"
+            prefix = "Training "
             if eval_mode:
-                prefix = "Eval"
-
-            # record data
-            self.tracking_data[prefix + " Reward / Instantaneous reward (max)"].append(torch.max(rewards).item())
-            self.tracking_data[prefix + " Reward / Instantaneous reward (min)"].append(torch.min(rewards).item())
-            self.tracking_data[prefix + " Reward / Instantaneous reward (mean)"].append(torch.mean(rewards).item())
-
+                prefix = "Eval "
 
             if 'smoothness' in infos.keys():
-                # handle force data
-                self.tracking_data[prefix + " Smoothness / Force (max)"].append(
-                    torch.max(infos['smoothness']['Smoothness / Damage Force']).item()
-                )
-                self.tracking_data[prefix + " Smoothness / Force (mean)"].append(
-                    torch.mean(infos['smoothness']['Smoothness / Damage Force']).item()
-                )
-                
-            for k, v in self.m4_returns.items():
-                if 'Force' not in k and 'Torque' not in k:
-                    idx = k.index("/") + 1 
-                    my_k = prefix + k[:idx]
-                    my_k = my_k.replace('Episode_Reward/', " Reward /")
-                    my_k = my_k.replace("Smoothness", " Smoothness")
-                    #tot = torch.sum(v, dim=0)
-                    #stp_avg = tot / self._cumulative_timesteps
-                    self.track_data(f'{my_k + " Step " + k[idx:]} (mean)', torch.mean(v).item())
-                    self.track_data(f'{my_k + " Step " + k[idx:]} (max)', torch.max(v).item())
-                    self.track_data(f'{my_k + " Step " + k[idx:]} (min)', torch.min(v).item())
+                for skey in infos['smoothness']:
+                    self.track_data(
+                        prefix + skey + " (mean)", 
+                        torch.mean( infos['smoothness'][skey] ).item()
+                    )
+                    self.track_data(
+                        prefix + skey + " (max)", 
+                        torch.max( infos['smoothness'][skey] ).item()
+                    )
+
+            # record step reward data
+            self.tracking_data[prefix + "Reward / Instantaneous reward (max)"].append(torch.max(rewards).item())
+            self.tracking_data[prefix + "Reward / Instantaneous reward (min)"].append(torch.min(rewards).item())
+            self.tracking_data[prefix + "Reward / Instantaneous reward (mean)"].append(torch.mean(rewards).item())
 
             if eval_mode:
                 self._cumulative_rewards += alive_mask * rewards
                 self._cumulative_timesteps[alive_mask] += 1
+                
                 mask_update = ~torch.logical_or(terminated, truncated)
+                new_terms = torch.logical_and(~mask_update, alive_mask)[:,0]
+
+                if torch.sum(new_terms) > 0:
+                    for rew in reward_dist.keys():
+                        if 'engaged' in rew:
+                            self.count_stats['engaged'] += torch.sum(infos['my_log_data']['engaged'][new_terms])
+                        self.reward_stats[rew].extend( self.last_rew[rew][new_terms, 0].reshape(-1).tolist())
+                        
+                    for term in term_dist.keys():
+                        self.count_stats[term] += torch.sum(term_dist[term][new_terms])
+                    
                 alive_mask *= mask_update
 
             else:
                 self._cumulative_rewards.add_(rewards)
                 self._cumulative_timesteps.add_(1)
-                mask_update = ~torch.logical_or(terminated, truncated)
 
-            
+                finished_episodes = (terminated + truncated).nonzero(as_tuple=False)
+                if finished_episodes.numel():
+                    # storage cumulative rewards and timesteps
+                    self._track_rewards.extend(self._cumulative_rewards[finished_episodes][:, 0].reshape(-1).tolist())
+                    self._track_timesteps.extend(self._cumulative_timesteps[finished_episodes][:, 0].reshape(-1).tolist())
 
-            finished_episodes = (terminated + truncated).nonzero(as_tuple=False)
-            if finished_episodes.numel() and not eval_mode:
-                # storage cumulative rewards and timesteps
-                self._track_rewards.extend(self._cumulative_rewards[finished_episodes][:, 0].reshape(-1).tolist())
-                self._track_timesteps.extend(self._cumulative_timesteps[finished_episodes][:, 0].reshape(-1).tolist())
+                    # reset the cumulative rewards and timesteps
+                    self._cumulative_rewards[finished_episodes] = 0
+                    self._cumulative_timesteps[finished_episodes] = 0
 
-                # reset the cumulative rewards and timesteps
-                self._cumulative_rewards[finished_episodes] = 0
-                self._cumulative_timesteps[finished_episodes] = 0
-                for k, v in self.m4_returns.items():
-                    v[finished_episodes] *= 0
-        #print("alive mask:", alive_mask)      
+                    # reward parts
+                    for rew in reward_dist.keys():
+                        if 'engaged' in rew:
+                            self.count_stats['engaged'] += torch.sum(infos['my_log_data']['engaged'][finished_episodes])
+                        self.reward_stats[rew].extend( self.last_rew[rew][finished_episodes,0].reshape(-1).tolist())
+                    
+                    for term in term_dist.keys():
+                        self.count_stats[term] += torch.sum(term_dist[term][finished_episodes])
+                    #print(self.count_stats['engaged'], self.count_stats['success'])
+            self.last_rew = reward_dist
         return alive_mask
     
     def reset_tracking(self):
@@ -486,8 +415,11 @@ class WandbLoggerPPO(PPO):
             return
         self._cumulative_rewards *= 0
         self._cumulative_timesteps *= 0
-        for k, v in self.m4_returns.items():
-            v *= 0
+        for k in self.reward_stats.keys():
+            self.reward_stats[k].clear()
+        
+        for k in self.count_stats.keys():
+            self.count_stats[k] *= 0.0
 
         self._track_rewards.clear()
         self._track_timesteps.clear() 

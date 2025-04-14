@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 def global_timeout(
     env: ManagerBasedRLEnv
 ):
+    
     if env.common_step_counter % env.max_episode_length == 0:
         return torch.ones((env.num_envs,), device=env.device, dtype=torch.bool)
     return torch.zeros((env.num_envs,), device=env.device, dtype=torch.bool)

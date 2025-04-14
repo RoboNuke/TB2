@@ -60,6 +60,17 @@ def currently_inrange(
     if check_rot:
         is_rotated = env.curr_yaw < env.cfg_task.ee_success_yaw
         curr_successes = torch.logical_and(curr_successes, is_rotated)
+    
+    if 'my_log_data' not in env.extras.keys():
+        env.extras['my_log_data'] = {
+            'success_once':torch.zeros_like(curr_successes),
+            'engaged_once':torch.zeros_like(curr_successes)
+        }
+
+    name = 'success' if success_threshold < 0.5 else 'engaged'
+    env.extras['my_log_data'][name] = curr_successes
+    env.extras['my_log_data'][name+"_once"] = torch.logical_or(env.extras['my_log_data'][name+"_once"], curr_successes)
+
 
     return curr_successes
      

@@ -15,13 +15,12 @@ def update_z_low(
     #print("called update_z_low")
     if True: #env.evaluating:
         step = env.num_envs // env.cfg.num_agents
-        succ_rews = torch.unsqueeze(env.reward_manager._episode_sums['success'], 1).clone()
+        success_once = env.extras['my_log_data']['success_once']
         out = {}
         for i in range(env.cfg.num_agents):
             l = i * step
             h = (i+1) * step
-            succ_envs = torch.where(succ_rews[l:h] > 0.0001, 1, 0)
-            sr = torch.sum(succ_envs) / step
+            sr = torch.sum(success_once[l:h]) / step
             if sr > 0.8:
                 # increase min z
                 env.z_low[l:h] = env.cfg_task.z_increase + env.z_low[l:h]
