@@ -192,21 +192,27 @@ class WandbLoggerPPO(PPO):
                 else:
                     self.data_manager.add_scalar({k:np.mean(v)}, timestep * self.num_envs)
             
-            for k,v in self.count_stats.items():
-                print(k)
-                my_k = prefix + 'Termination / ' + k
-                #my_k = my_k.replace('Episode_Termination/', 'Termination / ')
-                print(my_k,v)
-                self.data_manager.add_scalar({my_k:v}, timestep * self.num_envs)
-                self.count_stats[k] = 0
-            
-            for k,v in self.reward_stats.items():
-                print(k)
-                my_k = prefix + 'Reward / ' + k
-                my_k = my_k.replace('Episode_Reward/', 'Reward / ')
-                print(my_k, np.mean(np.array(v)))
-                self.data_manager.add_scalar({my_k:np.mean(np.array(v))}, timestep * self.num_envs)
-                self.reward_stats[k].clear()
+            tot = 0
+            for name in self.totals:
+                self.data_manager.add_scalar(
+                    {prefix + " Termination / " + name: self.totals[name]}, 
+                    timestep*self.num_envs
+                )
+                tot += 0 if 'engage' in name else self.totals[name]
+                self.totals[name] = 0
+
+            timeouts = max(0, self.num_envs - tot)
+            self.data_manager.add_scalar(
+                {prefix + " Termination / time_out" : timeouts}, 
+                timestep*self.num_envs
+            )
+
+            for name in self.once:
+                self.data_manager.add_scalar(
+                    {prefix + " Termination / " + name + " once": torch.sum(self.once[name])}, 
+                    timestep*self.num_envs
+                )
+                self.once[name][:] = False
             #self.data_manager.add_scalar({prefix + 'Termination / Engaged':torch.sum(self.engaged_once).item()}, timestep * self.num_envs)
         # reset data containers for next iteration
         self._track_rewards.clear()
@@ -335,16 +341,15 @@ class WandbLoggerPPO(PPO):
             if self._cumulative_rewards is None:
                 self._cumulative_rewards = torch.zeros_like(rewards, dtype=torch.float32)
                 self._cumulative_timesteps = torch.zeros_like(rewards, dtype=torch.int32)
-                # create bins for the termination types
-                self.count_stats = {}
-                self.reward_stats = {}
-                for term in term_dist:
-                    self.count_stats[term] = 0
-                for rew in reward_dist:
-                    self.reward_stats[rew] = collections.deque(maxlen=1000)
-                self.last_rew = reward_dist
                 #self.engaged_once = torch.zeros((self.num_envs, ), dtype=torch.bool, device = self.device)
-                self.count_stats['engaged'] = 0
+                self.totals = {}
+                for name in infos['my_log_data']["count_step"]:
+                    self.totals[name] = 0
+
+                self.once = {}
+                for name in infos['my_log_data']['once']:
+                    self.once[name] = torch.zeros((self.num_envs,), dtype=torch.bool, device=self.device)
+
             # handle reward 
             prefix = "Training "
             if eval_mode:
@@ -361,6 +366,10 @@ class WandbLoggerPPO(PPO):
                         torch.max( infos['smoothness'][skey] ).item()
                     )
 
+            for key in infos['log']:
+                if 'Curriculum/init_height_sampling' in key:
+                    self.track_data(key, infos['log'][key])
+
             # record step reward data
             self.tracking_data[prefix + "Reward / Instantaneous reward (max)"].append(torch.max(rewards).item())
             self.tracking_data[prefix + "Reward / Instantaneous reward (min)"].append(torch.min(rewards).item())
@@ -372,16 +381,14 @@ class WandbLoggerPPO(PPO):
                 
                 mask_update = ~torch.logical_or(terminated, truncated)
                 new_terms = torch.logical_and(~mask_update, alive_mask)[:,0]
+                
+                for name in infos['my_log_data']["count_step"]:
+                    self.totals[name] += torch.sum(torch.logical_and(infos['my_log_data']['count_step'][name], new_terms))
+                
+                for name in infos['my_log_data']["once"]:
+                    self.once[name] = torch.logical_or(self.once[name], infos['my_log_data']['once'][name])
 
-                if torch.sum(new_terms) > 0:
-                    for rew in reward_dist.keys():
-                        if 'engaged' in rew:
-                            self.count_stats['engaged'] += torch.sum(infos['my_log_data']['engaged'][new_terms])
-                        self.reward_stats[rew].extend( self.last_rew[rew][new_terms, 0].reshape(-1).tolist())
-                        
-                    for term in term_dist.keys():
-                        self.count_stats[term] += torch.sum(term_dist[term][new_terms])
-                    
+
                 alive_mask *= mask_update
 
             else:
@@ -398,16 +405,12 @@ class WandbLoggerPPO(PPO):
                     self._cumulative_rewards[finished_episodes] = 0
                     self._cumulative_timesteps[finished_episodes] = 0
 
-                    # reward parts
-                    for rew in reward_dist.keys():
-                        if 'engaged' in rew:
-                            self.count_stats['engaged'] += torch.sum(infos['my_log_data']['engaged'][finished_episodes])
-                        self.reward_stats[rew].extend( self.last_rew[rew][finished_episodes,0].reshape(-1).tolist())
+                    for name in infos['my_log_data']["count_step"]:
+                        self.totals[name] += torch.sum(infos['my_log_data']['count_step'][name][finished_episodes])
+
+                for name in infos['my_log_data']["once"]:
+                    self.once[name] = torch.logical_or(self.once[name], infos['my_log_data']['once'][name])
                     
-                    for term in term_dist.keys():
-                        self.count_stats[term] += torch.sum(term_dist[term][finished_episodes])
-                    #print(self.count_stats['engaged'], self.count_stats['success'])
-            self.last_rew = reward_dist
         return alive_mask
     
     def reset_tracking(self):
@@ -415,11 +418,10 @@ class WandbLoggerPPO(PPO):
             return
         self._cumulative_rewards *= 0
         self._cumulative_timesteps *= 0
-        for k in self.reward_stats.keys():
-            self.reward_stats[k].clear()
         
-        for k in self.count_stats.keys():
-            self.count_stats[k] *= 0.0
+        for name in self.totals:
+            self.totals[name] *= 0
+            self.once[name] *= 0
 
         self._track_rewards.clear()
         self._track_timesteps.clear() 

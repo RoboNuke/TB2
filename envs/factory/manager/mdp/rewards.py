@@ -18,9 +18,11 @@ def force_check(
         raw = env.scene['force_torque_sensor'].data.net_forces_w_history
         mag = torch.linalg.norm(raw,dim=1)
         val = torch.max(raw, dim=1)
+        env.extras['my_log_data']['force_mag'] = val
         return torch.where( val > threshold, 1.0, 0.0)
     else:
         mag = torch.linalg.norm(env.scene['force_torque_sensor'].data.net_forces_w, dim=1)
+        env.extras['my_log_data']['force_mag'] = mag
         return torch.where(mag > threshold, 1.0, 0.0) 
 
 def squashing_fn(x, a, b):
@@ -64,13 +66,21 @@ def currently_inrange(
     if 'my_log_data' not in env.extras.keys():
         env.extras['my_log_data'] = {
             'success_once':torch.zeros_like(curr_successes),
-            'engaged_once':torch.zeros_like(curr_successes)
+            'engaged_once':torch.zeros_like(curr_successes),
+            'count_step':{
+                'success':torch.zeros_like(curr_successes),
+                'engaged':torch.zeros_like(curr_successes)
+            },
+            'once':{
+                'success':torch.zeros_like(curr_successes),
+                'engaged':torch.zeros_like(curr_successes)
+            }
         }
 
     name = 'success' if success_threshold < 0.5 else 'engaged'
-    env.extras['my_log_data'][name] = curr_successes
-    env.extras['my_log_data'][name+"_once"] = torch.logical_or(env.extras['my_log_data'][name+"_once"], curr_successes)
-
+    env.extras['my_log_data']['count_step'][name] = curr_successes
+    env.extras['my_log_data']['once'][name] = torch.logical_or(env.extras['my_log_data']['once'][name], curr_successes)
+    
 
     return curr_successes
      

@@ -266,6 +266,9 @@ def reset_master(
     if env_ids is None:
         env_ids = torch.tensor(range(env.num_envs), device=env.device)
     if env_ids.size()[0] == env.num_envs:
+        if 'my_log_data' in env.extras and 'once' in env.extras['my_log_data']:
+            for name in env.extras['my_log_data']['once']:
+                env.extras['my_log_data']['once'][name][env_ids] = False
         # total reset, call everythign
         set_assets_to_default_pose(env, env_ids)
         set_franka_to_default_pose(env, env_ids)
