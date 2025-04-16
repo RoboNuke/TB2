@@ -23,7 +23,7 @@ class SimBaLayer(nn.Module):
         return out + res
 
 class SimBaNet(nn.Module):
-    def __init__(self, n, in_size, out_size, latent_size, device):
+    def __init__(self, n, in_size, out_size, latent_size, device, tan_out=False):
         super().__init__()
         self.layers = []
         self.n = n
@@ -33,11 +33,17 @@ class SimBaNet(nn.Module):
 
         self.layers = nn.ModuleList([SimBaLayer(latent_size, device) for i in range(self.n)])
 
-        
-        self.output = nn.Sequential(
-            nn.LayerNorm(latent_size),
-            he_layer_init(nn.Linear(latent_size, out_size))
-        ).to(device)
+        if tan_out:
+            self.output = nn.Sequential(
+                nn.LayerNorm(latent_size),
+                he_layer_init(nn.Linear(latent_size, out_size)),
+                nn.Tanh()
+            ).to(device)
+        else:
+            self.output = nn.Sequential(
+                nn.LayerNorm(latent_size),
+                he_layer_init(nn.Linear(latent_size, out_size))
+            ).to(device)
 
     def forward(self, x):
         out =  self.input(x)
@@ -83,6 +89,7 @@ class SimBaAgent(GaussianMixin, DeterministicMixin, Model):
             in_size=in_size, 
             out_size=1, 
             latent_size=critic_latent, 
+            tan_out=False,
             device=device
         )
         
@@ -92,12 +99,13 @@ class SimBaAgent(GaussianMixin, DeterministicMixin, Model):
             in_size=in_size, 
             out_size=self.num_actions, 
             latent_size=actor_latent, 
-            device=device
+            device=device,
+            tan_out=True
         )
 
         he_layer_init(self.critic.output[-1], bias_const=critic_output_init_mean) # 2.5 is about average return for random policy w/curriculum
-        #with torch.no_grad():
-        #    self.actor_mean.output[-1].weight *= 0.01
+        with torch.no_grad():
+            self.actor_mean.output[-2].weight *= 0.01
 
         self.actor_logstd = nn.Parameter(
             torch.ones(1, self.num_actions) * math.log(act_init_std)
@@ -113,8 +121,11 @@ class SimBaAgent(GaussianMixin, DeterministicMixin, Model):
         if role == "policy":
             self._shared_output = self.feature_net(inputs)
             action_mean = self.actor_mean(self._shared_output)
+            #print("Action:", action_mean[0,:].T)
+            #print("Computed:", self.actor_logstd[0,0].item())
             return action_mean, self.actor_logstd.expand_as(action_mean), {}
         elif role == "value":
             shared_output = self.feature_net(inputs) if self._shared_output is None else self._shared_output
             self._shared_output = None
+            val = self.critic(shared_output)
             return self.critic(shared_output), {}

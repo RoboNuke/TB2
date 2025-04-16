@@ -120,7 +120,7 @@ from agents.mp_agent import MPAgent
 import torch.multiprocessing as mp
 import copy
 from skrl.resources.schedulers.torch import KLAdaptiveLR
-
+import torch
 # seed for reproducibility
 #set_seed(args_cli.seed)  # e.g. `set_seed(42)` for fixed seed
 #if args_cli.seed == -1:
@@ -201,7 +201,9 @@ def main(
     print("Seed:", agent_cfg['seed'], args_cli.seed)
     #print(env_cfg)
     # random sample some parameters
-    #agent_cfg['agent']['learning_rate_scheduler'] = KLAdaptiveLR
+    if 'learning_rate_scheduler' in agent_cfg['agent'].keys():
+        # yaml doesn't read it as a class, but as a string idk
+        agent_cfg['agent']['learning_rate_scheduler'] = KLAdaptiveLR
     """
     import numpy as np
     agent_cfg['agent']['param_space'] = {}
@@ -412,6 +414,13 @@ def main(
                 device=device
             ) for i in range(args_cli.num_agents)
         ]
+        for i, agent in enumerate(agent_list):
+            agent.optimizer = torch.optim.Adam(
+                agent.policy.parameters(), 
+                lr=agent_cfgs[i]['agent']['learning_rate'],
+                betas=(0.999, 0.999)
+            )
+
     elif args_cli.learning_method == "sac":
         print("Have a sac actor")
         models['policy'] = BroActor(

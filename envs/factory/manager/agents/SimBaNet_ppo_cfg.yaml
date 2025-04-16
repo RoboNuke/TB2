@@ -9,7 +9,7 @@ break_force: -1
 models:
   force_encoding: None
   act_init_std: 0.16 # this is in approx meters now!
-  critic_output_init_mean: 1.5
+  critic_output_init_mean: 1.0
   critic:
     n: 2
     latent_size: 1024
@@ -24,36 +24,38 @@ agent:
   mini_batches: 100 #32 # 128 steps / minibatch (256 envs * 50 steps per update)
   discount_factor: 0.99
   lambda: 0.99
-  learning_rate: 1.0e-3
-  #learning_rate_scheduler: KLAdaptiveLR
-  #learning_rate_scheduler_kwargs:
-  #  kl_threshold: 0.05
-  #  min_lr: 1.0e-6
+  learning_rate: 1.0e-5
+  learning_rate_scheduler: KLAdaptiveLR
+  learning_rate_scheduler_kwargs:
+    kl_threshold: 0.05
+    min_lr: 1.0e-6
   # below are not args
   random_timesteps: 0
   learning_starts: 0
+  #time_limit_bootstrap: True
 
   grad_norm_clip: 0.5
   ratio_clip: 0.2
   clip_predicted_values: False
   value_clip: 0.2 #0.0
 
-  entropy_loss_scale: 0.0 #3.0e-5 #0.000005
+  entropy_loss_scale: 0.0 #0.000005
   value_loss_scale: 1.0
-  kl_threshold: 0.0 #5
+  kl_threshold: 0.0 #0.05
   rewards_shaper_scale: 1.0
   time_limit_bootstrap: False
 
   agent_is_list: False
   # logging and checkpoint
+  track_layernorms: True
   experiment:
     directory: "Tests"
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
-    tags: ['debug_apr13', 'lr_1e-4']
-    group: 'no_adaptive'
-    project: "Tester" #DMP_Observation_Testing" #'DMP_Observation_Testing'
+    tags: ['debug_apr15', 'lr_1e-5', 'curriculum', 'entropy_0']
+    group: 'hpc_test'
+    project: "DMP_Observation_Testing" #'DMP_Observation_Testing'
   
   logging_tags:
     obs_type: "basic" # "basic", "policy_history", "history", "DMP"

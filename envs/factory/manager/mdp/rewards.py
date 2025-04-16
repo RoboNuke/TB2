@@ -18,12 +18,17 @@ def force_check(
         raw = env.scene['force_torque_sensor'].data.net_forces_w_history
         mag = torch.linalg.norm(raw,dim=1)
         val = torch.max(raw, dim=1)
-        env.extras['my_log_data']['force_mag'] = val
-        return torch.where( val > threshold, 1.0, 0.0)
+        violated = torch.where( val > threshold, 1.0, 0.0)
     else:
-        mag = torch.linalg.norm(env.scene['force_torque_sensor'].data.net_forces_w, dim=1)
-        env.extras['my_log_data']['force_mag'] = mag
-        return torch.where(mag > threshold, 1.0, 0.0) 
+        val = torch.linalg.norm(env.scene['force_torque_sensor'].data.net_forces_w, dim=1)
+        violated = torch.where(mag > threshold, 1.0, 0.0) 
+
+    if 'my_log_data' not in env.extras:
+        env.extras['my_log_data'] = {}
+    env.extras['my_log_data']['force_mag'] = val
+    env.extras['my_log_data']['force_violations'] = violated
+
+    return violated
 
 def squashing_fn(x, a, b):
     return 1 / (torch.exp(a * x) + b + torch.exp(-a * x))
@@ -32,15 +37,25 @@ def squashing_fn(x, a, b):
 def keypoint_reward(
     env: ManagerBasedRLEnv,
     a: float = 100.0,
-    b: float = 0.0
+    b: float = 0.0,
+    rew_name: str = "keypoint_reward"
 ):
     compute_keypoint_value(env)#, dt=env.physics_dt))
-    return squashing_fn(env.keypoint_dist, a, b)
+    rew = squashing_fn(env.keypoint_dist, a, b)
+    if 'my_log_data' not in env.extras.keys():
+        env.extras['my_log_data'] = {}
+    if 'step_rew' not in env.extras['my_log_data']:
+        env.extras['my_log_data']['step_rew'] = {} 
+
+    env.extras['my_log_data']['step_rew'][rew_name] = rew
+    
+    return rew
 
 def currently_inrange(
     env: ManagerBasedRLEnv,
     success_threshold: float = 0.01,
-    check_rot: bool = False
+    check_rot: bool = False,
+    rew_name: str = "keypoint_reward"
 ):
     compute_keypoint_value(env)#, dt=env.physics_dt))
     curr_successes = torch.zeros((env.num_envs,), dtype=torch.bool, device=env.device)
@@ -64,22 +79,15 @@ def currently_inrange(
         curr_successes = torch.logical_and(curr_successes, is_rotated)
     
     if 'my_log_data' not in env.extras.keys():
-        env.extras['my_log_data'] = {
-            'success_once':torch.zeros_like(curr_successes),
-            'engaged_once':torch.zeros_like(curr_successes),
-            'count_step':{
-                'success':torch.zeros_like(curr_successes),
-                'engaged':torch.zeros_like(curr_successes)
-            },
-            'once':{
-                'success':torch.zeros_like(curr_successes),
-                'engaged':torch.zeros_like(curr_successes)
-            }
-        }
-
-    name = 'success' if success_threshold < 0.5 else 'engaged'
-    env.extras['my_log_data']['count_step'][name] = curr_successes
-    env.extras['my_log_data']['once'][name] = torch.logical_or(env.extras['my_log_data']['once'][name], curr_successes)
+        env.extras['my_log_data'] = {}
+    if 'count_step'  not in env.extras['my_log_data'].keys():
+        env.extras['my_log_data']['count_step'] = {}
+        env.extras['my_log_data']['once'] = {}
+    if rew_name not in env.extras['my_log_data']['count_step']:
+        env.extras['my_log_data']['count_step'][rew_name] = torch.zeros_like(curr_successes)
+        env.extras['my_log_data']['once'][rew_name] = torch.zeros_like(curr_successes)
+    env.extras['my_log_data']['count_step'][rew_name] = curr_successes
+    env.extras['my_log_data']['once'][rew_name] = torch.logical_or(env.extras['my_log_data']['once'][rew_name], curr_successes)
     
 
     return curr_successes

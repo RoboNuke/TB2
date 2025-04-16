@@ -408,36 +408,40 @@ class RewardsCfg:
         func=fac_mdp_rew.keypoint_reward,
         params={
             "a" : 5.0,
-            "b" : 4.0
+            "b" : 4.0,
+            "rew_name":"keypoint_baseline",
         },
-        weight=1.0/3.0
+        weight=1.0
     )
 
     keypoint_coarse = RewTerm(
         func=fac_mdp_rew.keypoint_reward,
         params={
             "a" : 50.0,
-            "b" : 2.0
+            "b" : 2.0,
+            "rew_name":"keypoint_coarse"
         },
-        weight=1.0/3.0
+        weight=1.0
     )
 
     keypoint_fine = RewTerm(
         func=fac_mdp_rew.keypoint_reward,
         params={
             "a" : 100.0,
-            "b" : 0.0
+            "b" : 0.0,
+            "rew_name":"keypoint_fine",
         },
-        weight=1.0/3.0
+        weight=1.0
     )
 
     engaged = RewTerm(
         func=fac_mdp_rew.currently_inrange,
         params={
-            "success_threshold" : 0.9,
-            "check_rot" : False
+            "success_threshold" : 100.0,
+            "check_rot" : False,
+            "rew_name":"engaged",
         },
-        weight=1.0/3.0
+        weight=1.0
     )
     
     #success = RewTerm(
@@ -460,17 +464,17 @@ class RewardsCfg:
     
     success = RewTerm(
         func = mdp.is_terminated_term,
-        weight= 1/3.0,
+        weight= 1.0,
         params={
-            "term_keys":["success"]
+            "term_keys":["success"],
         }
     )
 
     peg_broke = RewTerm(
         func = mdp.is_terminated_term,
-        weight=-1,
+        weight=-1.0,
         params={
-            "term_keys":["peg_broke"]
+            "term_keys":["peg_broke"],
         }
     )
     
@@ -519,7 +523,8 @@ class TerminationsCfg:
         fac_mdp_rew.currently_inrange,
         params={
             "success_threshold" : 0.04,
-            "check_rot" : False
+            "check_rot" : False,
+            "rew_name":"success",
         },
         time_out = False
     )

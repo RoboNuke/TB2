@@ -1,5 +1,7 @@
 seed: 42
 num_envs: 256
+use_curriculum: True
+break_force: -1
 #replicate_physics: False
 #scene:
 #  replicate_physics: False
@@ -17,15 +19,15 @@ models:
 agent:
   class: PPO
   rollouts: 50 #75
-  learning_epochs: 2
+  learning_epochs: 4
   mini_batches: 100 #32 # 128 steps / minibatch 128 steps / minibatch (256 envs * 50 steps per update)
   discount_factor: 0.99
   lambda: 0.99 #0.95
   learning_rate: 5.0e-4 #1.0e-04 # (optimized for PiH)
 
-  learning_rate_scheduler: KLAdaptiveLR
-  learning_rate_scheduler_kwargs:
-    kl_threshold: 0.0255 #0.01
+  #learning_rate_scheduler: KLAdaptiveLR
+  #learning_rate_scheduler_kwargs:
+  #  kl_threshold: 0.0255 #0.01
   # below are not args
   random_timesteps: 0
   learning_starts: 0
@@ -35,7 +37,7 @@ agent:
   #value_clip: 0.2 #0.0
   entropy_loss_scale: 3.0e-5 #0.000005
   value_loss_scale: 0.5 # 1.0
-  #kl_threshold: 0.05 # 0.0
+  kl_threshold: 0.05 # 0.0
   rewards_shaper_scale: 1.0
   time_limit_bootstrap: False
 
@@ -46,6 +48,10 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
+    tags: ['debug_apr14', 'lr_1e-4']
+    group: 'broNet'
+    project: "DMP_Observation_Testing" #'DMP_Observation_Testing'
+  
   
   logging_tags:
     obs_type: "basic" # "basic", "policy_history", "history", "DMP"

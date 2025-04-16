@@ -75,7 +75,7 @@ class FactoryTask:
     #     r(x) = 1/(exp(-ax) + b + exp(ax)).
     # Each list defines [a, b] which control the slope and maximum of the squashing function.
     num_keypoints: int = 4
-    keypoint_scale: float = 0.15
+    keypoint_scale: float = 0.15 # this is from min keypoint to max
     keypoint_coef_baseline: list = [5, 4]  # General movement towards fixed object.
     keypoint_coef_coarse: list = [50, 2]  # Movement to align the assets.
     keypoint_coef_fine: list = [100, 0]  # Smaller distances for threading or last-inch insertion.

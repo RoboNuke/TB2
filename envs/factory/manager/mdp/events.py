@@ -288,30 +288,23 @@ def reset_master(
     else:
         # partial reset, reset indexes to fixed state
         # this shuffles the tensors
-        permutation = torch.randperm(env.num_envs)
-        for key in env.start_state:
-            #print(key)
-            for key2 in env.start_state[key]:
-                #print("\t", key2)
-                for key3 in env.start_state[key][key2]:
-                    #print("\t\t", key3)
-                    if key2 == 'robot' and key3 in ['root_pose', 'root_velocity']:
-                        continue        
-                    env.start_state[key][key2][key3][:] = env.start_state[key][key2][key3][permutation]
-
+        new_idxs = torch.randint(env.num_envs, (env_ids.size()[0],), device=env.device)
         for art_name in env.scene.articulations.keys():
-            pose = env.start_state['articulation'][art_name]['root_pose']
-            vel = env.start_state['articulation'][art_name]['root_velocity']
-            jnt_pos = env.start_state['articulation'][art_name]['joint_position']
-            jnt_vel = env.start_state['articulation'][art_name]['joint_velocity']
-            env.scene[art_name].write_root_pose_to_sim(pose[env_ids,:], env_ids=env_ids)
-            env.scene[art_name].write_root_velocity_to_sim(vel[env_ids,:], env_ids=env_ids)
-            env.scene[art_name].write_joint_state_to_sim(jnt_pos[env_ids,:], jnt_vel[env_ids,:], env_ids=env_ids)
+            #print("Articulation Name:", art_name)
+            pose = env.start_state['articulation'][art_name]['root_pose'][new_idxs,:]
+            pose[:,:3] = pose[:,:3] - env.scene.env_origins[new_idxs] + env.scene.env_origins[env_ids]
+            vel = env.start_state['articulation'][art_name]['root_velocity'][new_idxs,:]
+            jnt_pos = env.start_state['articulation'][art_name]['joint_position'][new_idxs,:]
+            jnt_vel = env.start_state['articulation'][art_name]['joint_velocity'][new_idxs,:]
+            env.scene[art_name].write_root_pose_to_sim(pose, env_ids=env_ids)
+            env.scene[art_name].write_root_velocity_to_sim(vel, env_ids=env_ids)
+            env.scene[art_name].write_joint_state_to_sim(jnt_pos, jnt_vel, env_ids=env_ids)
+            env.scene[art_name].reset(env_ids)
             #env.scene[art_name].data.default_root_state[env_ids,:7] = env.start_state['articulation'][art_name]['root_pose'][env_ids,:]
             #env.scene[art_name].data.default_root_state[:,7:] *= 0.0 
 
 
-        env.scene["held_asset"].reset()
+        #env.scene["held_asset"].reset()
         #set_assets_to_default_pose(env, torch.tensor(range(env.num_envs)))
         #set_franka_to_default_pose(env, torch.tensor(range(env.num_envs)))
         #print("partial reset")

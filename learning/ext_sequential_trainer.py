@@ -123,16 +123,17 @@ class ExtSequentialTrainer(Trainer):
                     timestep=timestep, 
                     timesteps=self.timesteps
                 )[0] # we take only the sampled action
-                
+                #print("Post-Act:", actions[0,:].tolist())
                 # step the environments
                 #print("before len buf:\t", self.env.unwrapped.episode_length_buf)
                 #print("before timout:", self.env.unwrapped.termination_manager.get_term("time_out"))
-                next_states, rewards, terminated, truncated, infos = self.env.step(actions)
+                next_states, rewards, terminated, truncated, infos = self.env.step(actions.clone())
+                #print("Post-Step:", actions[0,:].tolist())
                 #print("after timout:", self.env.unwrapped.termination_manager.get_term("time_out"))
                 #print("termed:\t", self.env.unwrapped.termination_manager.terminated)
                 #print("time_outs:\t", self.env.unwrapped.termination_manager.time_outs)
                 #print("after len buf:\t", self.env.unwrapped.episode_length_buf)
-                infos['log']['Episode_Termination/time_out'] = truncated.sum()
+                #infos['log']['Episode_Termination/time_out'] = truncated.sum()
                 if vid_env is not None and vid_env.is_recording():
                     self.env.cfg.recording = True
                     
@@ -163,6 +164,7 @@ class ExtSequentialTrainer(Trainer):
                     term_dist = term_dist,
                     timesteps=self.timesteps
                 )
+                #print("Post-Record Trans:", actions[0,:].tolist())
                 
 
 
@@ -214,7 +216,7 @@ class ExtSequentialTrainer(Trainer):
 
         self.env.unwrapped.evaluating = True
 
-        ep_length = self.env.env.max_episode_length #- 1
+        ep_length = self.env.env.max_episode_length - 1
                 
         term_man = self.env.unwrapped.termination_manager
         term_cond = term_man.active_terms

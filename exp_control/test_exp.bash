@@ -12,26 +12,31 @@ echo "Exp: ${names[$exp_idx]}"
 HYDRA_FULL_ERROR=1 python -m learning.single_agent_train \
     --task=${envs[$exp_idx]} \
     --max_steps=35000000 \
-    --num_envs=256 \
+    --num_envs=16 \
     --num_agents=1 \
     --exp_name=$2  \
     --seed=1 \
-    --headless \
+    --init_eval \
     --log_smoothness_metrics \
     --learning_method="ppo" \
-    --init_eval \
+    --headless \
     --no_vids 
 
     #
     #
     #
+    #--no_log_wandb \
     #
     #
     # 
     #
     #
+    #
    #
-   # --no_log_wandb \
+   # 
+   # 
+    #
+    #
    # 
 #
     #--wandb_tags="debug_Apr11" \#
