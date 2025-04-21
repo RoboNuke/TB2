@@ -1,6 +1,6 @@
 seed: -1
 num_envs: 256
-use_curriculum: True
+use_curriculum: False
 break_force: -1
 #replicate_physics: False
 #scene:
