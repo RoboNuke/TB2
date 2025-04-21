@@ -460,6 +460,7 @@ def set_pos_inverse_kinematics(
         )
         
         fingertip_midpoint_quat = robot.data.body_link_quat_w[:, env.fingertip_body_idx]
+        #print(fingertip_midpoint_pos.size(), fingertip_midpoint_quat.size())
         # Compute error to target.
         pos_error, axis_angle_error = fc.get_pose_error(
             fingertip_midpoint_pos=fingertip_midpoint_pos[env_ids],

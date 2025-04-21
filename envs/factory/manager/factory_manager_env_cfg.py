@@ -1,7 +1,7 @@
 from dataclasses import MISSING
 import torch
 import isaacsim
-import isaacsim.core.utils.prims as prim_utils
+#import isaacsim.core.utils.prims as prim_utils
 import isaaclab.sim as sim_utils
 from isaaclab.assets import (
     Articulation,
@@ -437,21 +437,22 @@ class RewardsCfg:
     engaged = RewTerm(
         func=fac_mdp_rew.currently_inrange,
         params={
-            "success_threshold" : 100.0,
+            "success_threshold" : 0.9,
             "check_rot" : False,
             "rew_name":"engaged",
         },
         weight=1.0
     )
     
-    #success = RewTerm(
-    #    func=fac_mdp_rew.currently_inrange,
-    #    params={
-    #        "success_threshold" : 0.04,
-    #        "check_rot" : False
-    #    },
-    #    weight=1.0/3.0
-    #)
+    success = RewTerm(
+        func=fac_mdp_rew.currently_inrange,
+        params={
+            "success_threshold" : 0.04,
+            "check_rot" : False,
+            "rew_name":"success_reward"        
+        },
+        weight=1.0
+    )
     
     #broke_peg_failure = RewTerm(
     #    func=fac_mdp_rew.force_check,
@@ -462,13 +463,13 @@ class RewardsCfg:
     #)
     
     
-    success = RewTerm(
-        func = mdp.is_terminated_term,
-        weight= 1.0,
-        params={
-            "term_keys":["success"],
-        }
-    )
+    #success = RewTerm(
+    #    func = mdp.is_terminated_term,
+    #    weight= 1.0,
+    #    params={
+    #        "term_keys":["success"],
+    #    }
+    #)
 
     peg_broke = RewTerm(
         func = mdp.is_terminated_term,
@@ -528,6 +529,19 @@ class TerminationsCfg:
         },
         time_out = False
     )
+
+    #dropped_held_asset = DoneTerm(
+    #    fac_mdp_term.dropped_held_asset,
+    #    time_out = False
+    #)
+
+    #left_workspace = DoneTerm(
+    #   fac_mdp_term.in_ws_limits,
+    #    params={
+
+    #    },
+    #    time_out=False
+    #)
     #    func=fac_mdp_term.factory_success,
     #    time_out = False
     #)

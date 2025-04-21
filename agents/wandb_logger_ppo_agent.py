@@ -390,14 +390,22 @@ class WandbLoggerPPO(PPO):
             self.tracking_data[prefix + "Reward / Instantaneous reward (min)"].append(torch.min(rewards).item())
             self.tracking_data[prefix + "Reward / Instantaneous reward (mean)"].append(torch.mean(rewards).item())
 
+            for name in infos['my_log_data']["once"]:
+                self.once[name] = torch.logical_or(self.once[name], infos['my_log_data']['once'][name])
+                if 'engage' in name: # count step is the current status, once is the rollout status
+                    self.curr_engaged = torch.logical_or(self.curr_engaged, infos['my_log_data']['count_step'][name])
+                    
             if eval_mode:
                 self._cumulative_rewards += alive_mask * rewards
 
                 for rew_type in self.rew_types:
                     #self.rews[rew_type] += alive_mask * infos['my_log_data']['step_rew'][rew_type]
-                    self.rews["_track_" + rew_type].extend(
-                        (alive_mask * self.rews[rew_type][:,0]).reshape(-1).tolist()
-                    )
+                    #self.rews["_track_" + rew_type].extend(
+                    #    (alive_mask * self.rews[rew_type][:,0]).reshape(-1).tolist()
+                    #)
+                    rew = infos['my_log_data']['step_rew'][rew_type]
+                    #print(rew_type, rew.size(), self.rews[rew_type].size())
+                    self.rews[rew_type].add_(alive_mask * rew[:,None])
                     #self.rews[rew_type][finished_episodes] = 0
 
                 self._cumulative_timesteps[alive_mask] += 1
@@ -442,10 +450,6 @@ class WandbLoggerPPO(PPO):
                         self.totals[name] += torch.sum(infos['my_log_data']['count_step'][name][finished_episodes].float())
                     infos['my_log_data']['count_step'][name][finished_episodes] = False
 
-            for name in infos['my_log_data']["once"]:
-                self.once[name] = torch.logical_or(self.once[name], infos['my_log_data']['once'][name])
-                if 'engage' in name: # count step is the current status, once is the rollout status
-                    self.curr_engaged = torch.logical_or(self.curr_engaged, infos['my_log_data']['count_step'][name])
                     
         return alive_mask
     

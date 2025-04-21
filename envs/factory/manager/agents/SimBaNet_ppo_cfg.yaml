@@ -27,12 +27,11 @@ agent:
   learning_rate: 1.0e-5
   learning_rate_scheduler: KLAdaptiveLR
   learning_rate_scheduler_kwargs:
-    kl_threshold: 0.05
+    kl_threshold: 0.001
     min_lr: 1.0e-6
   # below are not args
   random_timesteps: 0
   learning_starts: 0
-  #time_limit_bootstrap: True
 
   grad_norm_clip: 0.5
   ratio_clip: 0.2
@@ -41,9 +40,9 @@ agent:
 
   entropy_loss_scale: 0.0 #0.000005
   value_loss_scale: 1.0
-  kl_threshold: 0.0 #0.05
+  kl_threshold: 0.05
   rewards_shaper_scale: 1.0
-  time_limit_bootstrap: False
+  time_limit_bootstrap: True
 
   agent_is_list: False
   # logging and checkpoint
@@ -53,8 +52,8 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
-    tags: ['debug_apr15', 'lr_1e-5', 'curriculum', 'entropy_0']
-    group: 'hpc_test'
+    tags: ['Apr17', 'lr_1e-5', 'curriculum', 'kl_adaptive', 'kl_threshold']
+    group: 'blind_tests'
     project: "DMP_Observation_Testing" #'DMP_Observation_Testing'
   
   logging_tags:
