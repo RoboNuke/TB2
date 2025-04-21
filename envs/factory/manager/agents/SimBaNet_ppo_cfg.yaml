@@ -52,7 +52,7 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
-    tags: ['debug_apr21','curriculum','hpc','rl_update','relative_obs']
+    tags: ['debug_apr21','no_curriculum','hpc','rl_update','relative_obs']
     group: 'hpc_tests'
     project: "DMP_Observation_Testing" #'DMP_Observation_Testing'
   
