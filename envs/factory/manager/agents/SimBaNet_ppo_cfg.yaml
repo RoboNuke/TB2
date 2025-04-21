@@ -27,7 +27,7 @@ agent:
   learning_rate: 1.0e-5
   learning_rate_scheduler: KLAdaptiveLR
   learning_rate_scheduler_kwargs:
-    kl_threshold: 0.001
+    kl_threshold: 0.01
     min_lr: 1.0e-6
   # below are not args
   random_timesteps: 0

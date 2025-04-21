@@ -68,7 +68,7 @@ simulation_app = app_launcher.app
 
 
 import gymnasium as gym
-from wrappers.video_recoder_wrapper import ExtRecordVideo
+#from wrappers.video_recoder_wrapper import ExtRecordVideo
 import os
 import random
 from datetime import datetime
@@ -115,7 +115,7 @@ from agents.wandb_logger_ppo_agent import WandbLoggerPPO
 from agents.wandb_logger_sac_agent import WandbLoggerSAC
 
 from tests.learning.toy_mdp import PrintActivity
-from wrappers.info_video_recorder_wrapper import InfoRecordVideo
+#from wrappers.info_video_recorder_wrapper import InfoRecordVideo
 from agents.mp_agent import MPAgent
 import torch.multiprocessing as mp
 import copy
