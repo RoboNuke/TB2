@@ -252,23 +252,25 @@ class ObservationsCfg:
         """Observations for policy group."""
         
         fingertip_pos = ObsTerm(
-            func= fac_mdp_obs.fingertip_pos,
-            params={"imu_sensor": True}
+            #func= fac_mdp_obs.fingertip_pos,
+            #params={"imu_sensor": True}
+            func=fac_mdp_obs.robot_held_relative_pos
         )
 
         fingertip_quat = ObsTerm(
-            func = fac_mdp_obs.fingertip_quat,
-            params={"imu_sensor": True}
+            #func = fac_mdp_obs.fingertip_quat,
+            #params={"imu_sensor": True}
+            func=fac_mdp_obs.robot_held_relative_quat
         )
 
         ee_linvel = ObsTerm(
             func = fac_mdp_obs.ee_linvel,
-            params={"imu_sensor": True}
+            params={"imu_sensor": False}
         )
 
         ee_angvel = ObsTerm(
             func = fac_mdp_obs.ee_angvel,
-            params={"imu_sensor": True}
+            params={"imu_sensor": False}
         )
 
         fingertip_pos_rel_fixed = ObsTerm(

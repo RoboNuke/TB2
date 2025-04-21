@@ -166,14 +166,14 @@ def init_tensors(
     env.right_finger_body_idx = robot.body_names.index("panda_rightfinger")
 
 
-    """
+    
     env.fingertip_midpoint_pos = torch.zeros((env.num_envs, 3), device=env.device)
     env.prev_fingertip_pos = torch.zeros((env.num_envs, 3), device=env.device)
     env.prev_ee_linvel = torch.zeros((env.num_envs, 3), device=env.device)
     env.prev_ee_angvel = torch.zeros((env.num_envs, 3), device=env.device)
     env.fingertip_midpoint_quat = env.identity_quat.clone()
     env.prev_fingertip_quat = env.identity_quat.clone()
-    """
+    
     env.time_keypoint_update = 0.0
 
     env.evaluating = False
@@ -662,7 +662,7 @@ def compute_keypoint_value(
     env.fixed_pos = fixed_asset.data.root_link_pos_w - env.scene.env_origins
     env.fixed_quat = fixed_asset.data.root_link_quat_w
 
-    """
+    
     env.fingertip_midpoint_pos = (
         robot.data.body_link_pos_w[:, env.fingertip_body_idx] - env.scene.env_origins
     )
@@ -688,7 +688,7 @@ def compute_keypoint_value(
 
     env.ee_angacc_fd = (env.ee_angvel_fd - env.prev_ee_angvel) / dt
     env.prev_ee_angvel = env.ee_angvel_fd
-    """
+    
     # update keypoint location
     env.held_base_quat[:], env.held_base_pos[:] = torch_utils.tf_combine(
         env.held_quat, env.held_pos, env.held_base_quat_local, env.held_base_pos_local

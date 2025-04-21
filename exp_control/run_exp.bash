@@ -27,6 +27,8 @@ python -m learning.single_agent_train \
     --exp_name=$3 \
     --log_smoothness_metrics \
     --learning_method=ppo \
+    --wandb_project="DMP_Observation_Testing" \
+    --wandb_tags="rl_update","curriculum","debug_Apr21" \
     --no_vids 
 # "DMP_Observation_Testing" \
 #python -m learning.single_agent_train --task TB2-Factor-PiH-v0 --exp_name basic_PiH_baseline --headless --max_steps 50000000 --no_vids --num_agents 5 --num_envs 1280 --wandb_tags multi_agent_tests basic_obs
