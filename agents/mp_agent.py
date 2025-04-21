@@ -82,7 +82,24 @@ def fn_processor(process_index, *args):
                 red_info = {} # copy everything but 'smoothness
                 for key in info.keys():
                     #print("key:", key)
-                    if not key == 'smoothness':
+                    if key == 'smoothness':
+                        red_info['smoothness'] = {}
+                        for s_key in info['smoothness'].keys():
+                            red_info['smoothness'][s_key] = info['smoothness'][s_key][scope[0] : scope[1]]
+                    elif key == "my_log_data":
+                        red_info['my_log_data'] = {}
+                        for log_key in info[key].keys():
+                            #print("\tlog key:", log_key, type(info[key][log_key]))
+                            if type(info[key][log_key]) == dict:
+                                #print("\t\tMaking new dict ", info[key][log_key].keys())
+                                red_info[key][log_key] = {}
+                                for data_key in info[key][log_key].keys():
+                                    #print("\t\tData key:", data_key)
+                                    red_info[key][log_key][data_key] = info[key][log_key][data_key][scope[0] : scope[1]]
+                            else:
+                                #print("\t\tstored")
+                                red_info[key][log_key] = info[key][log_key][scope[0] : scope[1]]
+                    else:
                         red_info[key] = {}
                         for small_key in info[key]:
                             #print("\tSmall Key:", small_key)
@@ -93,10 +110,6 @@ def fn_processor(process_index, *args):
                                     red_info[key][small_key] = info[key][small_key]
                             else:
                                 red_info[key][small_key] = info[key][small_key]
-                    else:
-                        red_info['smoothness'] = {}
-                        for s_key in info['smoothness'].keys():
-                            red_info['smoothness'][s_key] = info['smoothness'][s_key][scope[0] : scope[1]]
                 #print("Sent Info:", red_info['log'])
                 alive_mask = None if alive_mask_is_none else queue.get()[scope[0] : scope[1]]
                 alive_mask_out = agent.record_transition(
@@ -315,6 +328,11 @@ class MPAgent():
             for key in infos[big_key].keys():
                 if type(infos[big_key][key]) == torch.Tensor and not infos[big_key][key].is_cuda:
                     infos[big_key][key].share_memory_()
+                elif type(infos[big_key][key]) == dict:
+                    for small_key in infos[big_key][key].keys():
+                        if type(infos[big_key][key][small_key]) == torch.Tensor and not infos[big_key][key][small_key].is_cuda:
+                            infos[big_key][key][small_key].share_memory_()
+
         #print("sending record trans") 
         self.send(
             {

@@ -51,7 +51,7 @@ agent:
     directory: "Tests"
     experiment_name: "test"
     write_interval: 50 #75
-    checkpoint_interval: 2000
+    checkpoint_interval: 100
     tags: ['debug_apr21','curriculum','hpc','rl_update','relative_obs']
     group: 'hpc_tests'
     project: "DMP_Observation_Testing" #'DMP_Observation_Testing'
