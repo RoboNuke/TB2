@@ -52,8 +52,8 @@ agent:
     experiment_name: "test"
     write_interval: 50 #75
     checkpoint_interval: 2000
-    tags: ['Apr17', 'lr_1e-5', 'curriculum', 'kl_adaptive', 'kl_threshold']
-    group: 'blind_tests'
+    tags: ['debug_apr21','curriculum','hpc','rl_update','relative_obs']
+    group: 'hpc_tests'
     project: "DMP_Observation_Testing" #'DMP_Observation_Testing'
   
   logging_tags:
